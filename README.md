@@ -7,8 +7,10 @@
 
 ## Что уже есть (v0.1)
 
-- Встроенный кит **GMRockKit** (Hydrogen, GPL) с бочкой из **MuldjordKit** (DrumGizmo,
-  CC BY 4.0): 18 артикуляций, 5 слоёв по силе удара. Авторы — `resources/kits/CREDITS.md`.
+- Два кита, переключаются списком в шапке: **Muldjord Kit** (DrumGizmo, CC BY 4.0,
+  по умолчанию) и **GM Rock Kit** (Hydrogen, GPL). 18 артикуляций, 5 слоёв по силе удара;
+  чего нет в Muldjord (римшот, педаль и полуоткрытый хэт, сплэш, ковбелл, хлопок) —
+  берётся из GM Rock. Авторы — `resources/kits/CREDITS.md`.
 - Раскладка нот General MIDI, **MIDI Learn** для любой артикуляции (правый клик по барабану).
 - Хай-хэт: закрытый / полуоткрытый / открытый / педаль, взаимное заглушение (choke).
 - Фото установки (вид сверху), которое реагирует на удары: подсветка и волна по пластику,
@@ -62,10 +64,12 @@ Windows и macOS собираются в GitHub Actions (`.github/workflows/buil
 
 ### Сэмплы
 
-Все сэмплы — в `resources/kits/GMRockKit/`. У каждой артикуляции 5 файлов, от тихого
-удара к сильному: `-Softest`, `-Soft`, `-Med`, `-Hard`, `-Hardest`. Например, бочка:
-`Kick-Softest.wav` … `Kick-Hardest.wav`. Чтобы заменить звук — положи свои WAV
-с теми же именами (любая частота дискретизации; стерео сводится в моно).
+Сэмплы — в `resources/kits/<кит>/`. У каждой артикуляции 5 файлов, от тихого
+удара к сильному: `-Softest`, `-Soft`, `-Med`, `-Hard`, `-Hardest`. Например, бочка
+GM Rock: `GMRockKit/Kick-Softest.wav` … `Kick-Hardest.wav`; у Muldjord к имени
+добавлен префикс: `MuldjordKit/Muldjord-Kick-Softest.flac`. Чтобы заменить звук —
+положи свои WAV или FLAC с теми же именами (любая частота дискретизации; стерео
+сводится в моно). Новый кит добавляется строкой в `kits` в `src/KitDefinition.h`.
 Если сэмпл один — скопируй его во все 5 файлов.
 
 Кит из DrumGizmo (drumgizmo.org, многомикрофонные записи) превращается в 5 слоёв
@@ -74,8 +78,12 @@ Windows и macOS собираются в GitHub Actions (`.github/workflows/buil
 ```bash
 tools/import_drumgizmo.py MuldjordKit3/KdrumL/KdrumL.xml \
     --mix KdrumL=1.0,OHL=0.3,OHR=0.3,AmbL=0.2,AmbR=0.2 \
-    --prefix Kick --out resources/kits/GMRockKit
+    --prefix Muldjord-Kick --out resources/kits/MuldjordKit --format flac
 ```
+
+Весь Muldjord Kit пересобирается из архива DrumGizmo командой
+`scripts/import_muldjord.sh <папка MuldjordKit3>` — там же видно, какие
+микрофоны и в каких пропорциях сведены.
 
 Какие файлы к какому барабану и какие ноты по умолчанию — в таблице
 `src/KitDefinition.h` (`articulations`).
@@ -116,6 +124,6 @@ build/TabifyDrumsSnapshot out
 
 ## Лицензия
 
-Код — AGPLv3 (требование открытой лицензии JUCE). Сэмплы — GPL (GMRockKit) и
-CC BY 4.0 (бочка MuldjordKit), подробно в `resources/kits/CREDITS.md`. Фото установки
+Код — AGPLv3 (требование открытой лицензии JUCE). Сэмплы — CC BY 4.0 (Muldjord Kit)
+и GPL (GM Rock Kit), подробно в `resources/kits/CREDITS.md`. Фото установки
 (`resources/ui/kit.jpg`) — права нужно подтвердить перед публикацией.
