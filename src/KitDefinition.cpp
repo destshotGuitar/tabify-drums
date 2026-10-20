@@ -9,15 +9,13 @@ std::vector<std::string> layerFiles (const ArticulationInfo& info)
     switch (info.naming)
     {
         case LayerNaming::graded:
-            return { base + "-Softest.wav", base + "-Soft.wav", base + "-Med.wav",
-                     base + "-Hard.wav", base + "-Hardest.wav" };
+            return { base + "-Softest", base + "-Soft", base + "-Med", base + "-Hard", base + "-Hardest" };
 
         case LayerNaming::numbered:
-            return { base + "-1.wav", base + "-2.wav", base + "-3.wav",
-                     base + "-4.wav", base + "-5.wav" };
+            return { base + "-1", base + "-2", base + "-3", base + "-4", base + "-5" };
 
         case LayerNaming::single:
-            return { base + ".wav" };
+            return { base };
     }
 
     return {};

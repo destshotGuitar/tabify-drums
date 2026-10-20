@@ -122,6 +122,29 @@ int main (int argc, char** argv)
         std::cout << "  " << sweep << std::endl;
     }
 
+    // Kit switching happens on the plugin's message thread, in the background.
+    {
+        juce::AudioProcessorParameter* kitParam = nullptr;
+        for (auto* p : plugin->getParameters())
+            if (p->getName (20) == "Kit")
+                kitParam = p;
+        check (kitParam != nullptr, "kit parameter exists");
+
+        if (kitParam != nullptr)
+        {
+            juce::StringArray peaksByKit;
+            for (const auto value : { 1.0f, 0.0f })
+            {
+                kitParam->setValueNotifyingHost (value);
+                juce::MessageManager::getInstance()->runDispatchLoopUntil (1500);
+                render (*plugin, scratch, 1 << 30, (int) sampleRate * 3, {});
+                const auto peak = render (*plugin, scratch, 1 << 30, (int) sampleRate / 2, { { 0, 36 } });
+                peaksByKit.add (kitParam->getCurrentValueAsText() + " kick " + juce::String (peak, 3));
+                check (peak > 0.05f, peaksByKit[peaksByKit.size() - 1]);
+            }
+        }
+    }
+
     const auto softPeak = render (*plugin, scratch, 1 << 30, (int) sampleRate / 2, { { 0, 38 } }, 20);
     const auto hardPeak = render (*plugin, scratch, 1 << 30, (int) sampleRate / 2, { { 0, 38 } }, 127);
     check (hardPeak > softPeak * 1.5f, "velocity layers: soft " + juce::String (softPeak, 3) + " < hard " + juce::String (hardPeak, 3));

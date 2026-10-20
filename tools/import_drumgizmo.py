@@ -4,7 +4,8 @@
 DrumGizmo records every hit on all microphones (one multichannel WAV per hit,
 each with a "power" value). This mixes the chosen microphones down to mono,
 picks five hits spread from soft to hard, trims silence and writes them as
-<Prefix>-Softest.wav ... <Prefix>-Hardest.wav (24-bit mono).
+<Prefix>-Softest.wav ... <Prefix>-Hardest.wav (24-bit mono WAV, or FLAC via
+ffmpeg with --format flac).
 
 Example:
   tools/import_drumgizmo.py MuldjordKit3/KdrumL/KdrumL.xml \\
@@ -15,6 +16,7 @@ Example:
 import argparse
 import os
 import struct
+import subprocess
 import sys
 import wave
 import xml.etree.ElementTree as ET
@@ -22,6 +24,7 @@ import xml.etree.ElementTree as ET
 import numpy as np
 
 LAYER_NAMES = ["Softest", "Soft", "Med", "Hard", "Hardest"]
+NUMBERED_NAMES = ["1", "2", "3", "4", "5"]
 # Loudness of each layer relative to the hardest hit, in dB.
 LAYER_TARGETS_DB = [-18.0, -12.0, -7.0, -3.0, 0.0]
 
@@ -126,6 +129,10 @@ def main():
     parser.add_argument("--prefix", required=True, help="output name prefix, e.g. Kick")
     parser.add_argument("--out", required=True, help="output directory")
     parser.add_argument("--peak", type=float, default=0.95, help="peak level of the hardest layer")
+    parser.add_argument("--max-seconds", type=float, default=2.5, help="longest allowed sample")
+    parser.add_argument("--naming", choices=["graded", "numbered"], default="graded",
+                        help="layer file names: -Softest..-Hardest or -1..-5")
+    parser.add_argument("--format", choices=["wav", "flac"], default="wav")
     args = parser.parse_args()
 
     mix = {}
@@ -148,16 +155,23 @@ def main():
     layers, rate = [], None
     for power, name, channels in chosen:
         audio, rate = mixdown(channels, mix)
-        layers.append((name, power, trim(audio, rate)))
+        layers.append((name, power, trim(audio, rate, max_seconds=args.max_seconds)))
 
     # One gain for all layers so their natural dynamics are kept.
     scale = args.peak / max(np.max(np.abs(a)) for _, _, a in layers)
 
     os.makedirs(args.out, exist_ok=True)
-    for layer_name, (name, power, audio) in zip(LAYER_NAMES, layers):
+    names = LAYER_NAMES if args.naming == "graded" else NUMBERED_NAMES
+    for layer_name, (name, power, audio) in zip(names, layers):
         path = os.path.join(args.out, f"{args.prefix}-{layer_name}.wav")
         audio = audio * scale
         write_wav24(path, audio, rate)
+        if args.format == "flac":
+            flac = path[:-4] + ".flac"
+            subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", path, "-c:a", "flac",
+                            "-compression_level", "8", flac], check=True)
+            os.remove(path)
+            path = flac
         print(f"{os.path.basename(path):22s} <- {name:12s} power {power:7.3f}  "
               f"peak {np.max(np.abs(audio)):.3f}  {len(audio) / rate:.2f}s")
 

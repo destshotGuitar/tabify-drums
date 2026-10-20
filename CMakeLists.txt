@@ -41,7 +41,8 @@ clap_juce_extensions_plugin(TARGET TabifyDrums
     CLAP_FEATURES instrument drum-machine stereo)
 
 file(GLOB TABIFY_KIT_SAMPLES CONFIGURE_DEPENDS
-    "${CMAKE_CURRENT_SOURCE_DIR}/resources/kits/GMRockKit/*.wav")
+    "${CMAKE_CURRENT_SOURCE_DIR}/resources/kits/*/*.wav"
+    "${CMAKE_CURRENT_SOURCE_DIR}/resources/kits/*/*.flac")
 juce_add_binary_data(TabifyDrumsKitData
     HEADER_NAME KitData.h
     NAMESPACE KitData

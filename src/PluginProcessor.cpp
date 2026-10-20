@@ -15,11 +15,19 @@ TabifyDrumsProcessor::TabifyDrumsProcessor()
         pp.solo = apvts.getRawParameterValue (kit::paramId ("solo", p));
     }
     masterVolume = apvts.getRawParameterValue ("master");
+    kitParam = apvts.getRawParameterValue ("kit");
 
     for (auto& p : peaks)
         p = 0.0f;
 
     resetAllMappings();
+    startTimerHz (20);
+}
+
+TabifyDrumsProcessor::~TabifyDrumsProcessor()
+{
+    stopTimer();
+    loaderPool.removeAllJobs (true, 10000);
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout TabifyDrumsProcessor::createLayout()
@@ -53,12 +61,66 @@ juce::AudioProcessorValueTreeState::ParameterLayout TabifyDrumsProcessor::create
     layout.add (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { "master", 1 }, "Master Volume", dbRange, 0.0f, dbAttributes));
 
+    juce::StringArray kitNames;
+    for (const auto& k : kit::kits)
+        kitNames.add (k.name);
+    layout.add (std::make_unique<juce::AudioParameterChoice> (juce::ParameterID { "kit", 1 }, "Kit", kitNames, 0));
+
     return layout;
 }
 
 void TabifyDrumsProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
     engine.prepare (sampleRate, samplesPerBlock);
+
+    // Audio is stopped here, so load synchronously: the first block (and any
+    // offline render that starts right away) must already have the kit.
+    currentSampleRate = sampleRate;
+    activeKit = selectedKit();
+    engine.setKitNow (DrumEngine::loadKit (activeKit, sampleRate));
+}
+
+int TabifyDrumsProcessor::selectedKit() const
+{
+    return juce::jlimit (0, (int) kit::kits.size() - 1, juce::roundToInt (kitParam->load()));
+}
+
+void TabifyDrumsProcessor::startKitLoad (int kitIndex)
+{
+    loadingKit = kitIndex;
+    const auto rate = currentSampleRate.load();
+
+    loaderPool.addJob ([this, kitIndex, rate]
+    {
+        auto samples = DrumEngine::loadKit (kitIndex, rate);
+        const juce::ScopedLock lock (loadedLock);
+        loadedSamples = std::move (samples);
+    });
+}
+
+void TabifyDrumsProcessor::timerCallback()
+{
+    std::unique_ptr<DrumEngine::KitSamples> finished;
+    {
+        const juce::ScopedLock lock (loadedLock);
+        finished = std::move (loadedSamples);
+    }
+
+    if (finished != nullptr)
+    {
+        loadingKit = -1;
+        // A load started before a sample-rate change is stale; it is retried below.
+        if (juce::approximatelyEqual (finished->sampleRate, currentSampleRate.load()))
+        {
+            activeKit = finished->kitIndex;
+            engine.setKit (std::move (finished));
+        }
+    }
+
+    engine.collectGarbage();
+
+    if (currentSampleRate.load() > 0.0 && loadingKit < 0 && selectedKit() != activeKit)
+        startKitLoad (selectedKit());
 }
 
 bool TabifyDrumsProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const

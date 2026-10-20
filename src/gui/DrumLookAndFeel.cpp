@@ -13,6 +13,10 @@ DrumLookAndFeel::DrumLookAndFeel()
     setColour (juce::TextButton::buttonOnColourId, palette::accent);
     setColour (juce::TextButton::textColourOffId, palette::text);
     setColour (juce::TextButton::textColourOnId, juce::Colours::black);
+    setColour (juce::ComboBox::backgroundColourId, palette::panelLight);
+    setColour (juce::ComboBox::outlineColourId, palette::outline);
+    setColour (juce::ComboBox::textColourId, palette::text);
+    setColour (juce::ComboBox::arrowColourId, palette::accent);
     setColour (juce::PopupMenu::backgroundColourId, palette::panel);
     setColour (juce::PopupMenu::textColourId, palette::text);
     setColour (juce::PopupMenu::headerTextColourId, palette::accent);

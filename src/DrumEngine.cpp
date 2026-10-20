@@ -7,59 +7,98 @@
 // when the whole kit plays at once.
 static constexpr float kitTrim = 0.5f;
 
-DrumEngine::DrumEngine()
+namespace
 {
-    loadKit();
+using ResourceMap = std::map<std::string, std::pair<const char*, int>>;
+
+// Embedded samples by file name without extension.
+const ResourceMap& embeddedSamples()
+{
+    static const ResourceMap resources = []
+    {
+        ResourceMap map;
+        for (int i = 0; i < KitData::namedResourceListSize; ++i)
+        {
+            const auto* name = KitData::namedResourceList[i];
+            int size = 0;
+            if (const auto* data = KitData::getNamedResource (name, size))
+            {
+                const juce::String file (KitData::getNamedResourceOriginalFilename (name));
+                map[file.upToLastOccurrenceOf (".", false, false).toStdString()] = { data, size };
+            }
+        }
+        return map;
+    }();
+    return resources;
 }
 
-void DrumEngine::loadKit()
+juce::AudioBuffer<float> decodeMono (juce::AudioFormatManager& formats, const std::pair<const char*, int>& data,
+                                     double targetRate)
 {
-    std::map<std::string, std::pair<const char*, int>> resources;
+    auto stream = std::make_unique<juce::MemoryInputStream> (data.first, (size_t) data.second, false);
+    std::unique_ptr<juce::AudioFormatReader> reader (formats.createReaderFor (std::move (stream)));
+    if (reader == nullptr)
+        return {};
 
-    for (int i = 0; i < KitData::namedResourceListSize; ++i)
-    {
-        const auto* name = KitData::namedResourceList[i];
-        int size = 0;
-        if (const auto* data = KitData::getNamedResource (name, size))
-            resources[KitData::getNamedResourceOriginalFilename (name)] = { data, size };
-    }
+    const auto length = (int) reader->lengthInSamples;
+    juce::AudioBuffer<float> raw ((int) reader->numChannels, length);
+    reader->read (&raw, 0, length, 0, true, true);
+
+    // Mix down to mono: pan is applied per piece in the mixer.
+    juce::AudioBuffer<float> mono (1, length);
+    mono.clear();
+    for (int ch = 0; ch < raw.getNumChannels(); ++ch)
+        mono.addFrom (0, 0, raw, ch, 0, length, 1.0f / (float) raw.getNumChannels());
+
+    const auto ratio = reader->sampleRate / targetRate;
+    if (std::abs (ratio - 1.0) < 1.0e-6)
+        return mono;
+
+    const auto outLength = (int) std::ceil (length / ratio);
+    juce::AudioBuffer<float> resampled (1, outLength);
+    resampled.clear();
+    juce::LagrangeInterpolator interpolator;
+    interpolator.process (ratio, mono.getReadPointer (0), resampled.getWritePointer (0), outLength, length, 0);
+    return resampled;
+}
+} // namespace
+
+std::unique_ptr<DrumEngine::KitSamples> DrumEngine::loadKit (int kitIndex, double rate)
+{
+    kitIndex = juce::jlimit (0, (int) kit::kits.size() - 1, kitIndex);
+    const std::string prefix (kit::kits[(size_t) kitIndex].filePrefix);
+    const auto& resources = embeddedSamples();
 
     juce::AudioFormatManager formats;
     formats.registerBasicFormats();
 
+    auto result = std::make_unique<KitSamples>();
+    result->kitIndex = kitIndex;
+    result->sampleRate = rate;
+
     for (size_t a = 0; a < kit::articulations.size(); ++a)
     {
-        for (const auto& file : kit::layerFiles (kit::articulations[a]))
+        const auto files = kit::layerFiles (kit::articulations[a]);
+
+        // Use the kit's own samples if it has them, else the GM Rock ones.
+        const auto own = resources.count (prefix + files.front()) > 0;
+
+        for (const auto& file : files)
         {
-            const auto found = resources.find (file);
+            const auto found = resources.find (own ? prefix + file : file);
             if (found == resources.end())
             {
                 jassertfalse; // the sample is missing from the binary data
                 continue;
             }
 
-            auto stream = std::make_unique<juce::MemoryInputStream> (found->second.first,
-                                                                     (size_t) found->second.second,
-                                                                     false);
-            std::unique_ptr<juce::AudioFormatReader> reader (formats.createReaderFor (std::move (stream)));
-            if (reader == nullptr)
-                continue;
-
-            Layer layer;
-            layer.sourceRate = reader->sampleRate;
-            const auto length = (int) reader->lengthInSamples;
-            juce::AudioBuffer<float> raw ((int) reader->numChannels, length);
-            reader->read (&raw, 0, length, 0, true, true);
-
-            // Mix down to mono: pan is applied per piece in the mixer.
-            layer.source.setSize (1, length);
-            layer.source.clear();
-            for (int ch = 0; ch < raw.getNumChannels(); ++ch)
-                layer.source.addFrom (0, 0, raw, ch, 0, length, 1.0f / (float) raw.getNumChannels());
-
-            layers[a].push_back (std::move (layer));
+            auto buffer = decodeMono (formats, found->second, rate);
+            if (buffer.getNumSamples() > 0)
+                result->layers[a].push_back (std::move (buffer));
         }
     }
+
+    return result;
 }
 
 void DrumEngine::prepare (double newSampleRate, int maxBlockSize)
@@ -68,32 +107,6 @@ void DrumEngine::prepare (double newSampleRate, int maxBlockSize)
     chokeFadeSamples = juce::jmax (1, (int) (sampleRate * 0.03));
 
     stopAll();
-
-    for (auto& articulationLayers : layers)
-    {
-        for (auto& layer : articulationLayers)
-        {
-            const auto ratio = layer.sourceRate / sampleRate;
-            if (std::abs (ratio - 1.0) < 1.0e-6)
-            {
-                layer.playback.makeCopyOf (layer.source);
-                continue;
-            }
-
-            const auto outLength = (int) std::ceil (layer.source.getNumSamples() / ratio);
-            layer.playback.setSize (1, outLength);
-            layer.playback.clear();
-
-            juce::LagrangeInterpolator interpolator;
-            interpolator.process (ratio,
-                                  layer.source.getReadPointer (0),
-                                  layer.playback.getWritePointer (0),
-                                  outLength,
-                                  layer.source.getNumSamples(),
-                                  0);
-        }
-    }
-
     pieceBuffers.setSize (kit::numPieces, maxBlockSize);
 
     for (auto& c : compressors)
@@ -108,6 +121,36 @@ void DrumEngine::prepare (double newSampleRate, int maxBlockSize)
     gainsSet = false;
 }
 
+void DrumEngine::setKit (std::unique_ptr<KitSamples> samples)
+{
+    const juce::SpinLock::ScopedLockType lock (kitLock);
+    requested = samples.get();
+    kitStore.push_back (std::move (samples));
+    collectGarbageLocked();
+}
+
+void DrumEngine::setKitNow (std::unique_ptr<KitSamples> samples)
+{
+    const juce::SpinLock::ScopedLockType lock (kitLock);
+    stopAll();
+    requested = active = samples.get();
+    kitStore.push_back (std::move (samples));
+    collectGarbageLocked();
+}
+
+void DrumEngine::collectGarbage()
+{
+    const juce::SpinLock::ScopedLockType lock (kitLock);
+    collectGarbageLocked();
+}
+
+void DrumEngine::collectGarbageLocked()
+{
+    kitStore.erase (std::remove_if (kitStore.begin(), kitStore.end(),
+                                    [this] (const auto& k) { return k.get() != active && k.get() != requested; }),
+                    kitStore.end());
+}
+
 void DrumEngine::startBlock (int numSamples)
 {
     // Some hosts exceed the block size announced in prepareToPlay.
@@ -115,6 +158,16 @@ void DrumEngine::startBlock (int numSamples)
         pieceBuffers.setSize (kit::numPieces, numSamples, false, false, true);
 
     pieceBuffers.clear (0, numSamples);
+
+    {
+        const juce::SpinLock::ScopedTryLockType lock (kitLock);
+        if (lock.isLocked() && requested != active)
+        {
+            // Voices point into the old kit's buffers, so they must stop.
+            stopAll();
+            active = requested;
+        }
+    }
 }
 
 void DrumEngine::render (int startSample, int numSamples)
@@ -175,8 +228,11 @@ void DrumEngine::trigger (int articulation, float velocity)
     if (! juce::isPositiveAndBelow (articulation, (int) kit::numArticulations))
         return;
 
+    if (active == nullptr)
+        return;
+
     const auto& info = kit::articulations[(size_t) articulation];
-    auto& available = layers[(size_t) articulation];
+    const auto& available = active->layers[(size_t) articulation];
     if (available.empty())
         return;
 
@@ -210,7 +266,7 @@ void DrumEngine::trigger (int articulation, float velocity)
     }
 
     auto& v = allocateVoice();
-    v.sample = &available[index].playback;
+    v.sample = &available[index];
     v.position = 0;
     v.gain = gain;
     v.piece = info.piece;

@@ -6,6 +6,21 @@
 
 namespace kit
 {
+// The built-in kits. Sample files of a kit are named <filePrefix><layer file>;
+// articulations a kit has no samples for are taken from the GM Rock kit,
+// whose files have no prefix.
+struct KitInfo
+{
+    const char* id;
+    const char* name;
+    const char* filePrefix;
+};
+
+inline constexpr std::array<KitInfo, 2> kits {{
+    { "muldjord", "Muldjord Kit", "Muldjord-" },
+    { "gmrock",   "GM Rock Kit",  "" },
+}};
+
 // A piece is a physical drum or cymbal: it has one mixer channel and one
 // picture in the kit view. An articulation is a way of hitting a piece and is
 // what MIDI notes map to.
@@ -95,7 +110,7 @@ inline constexpr std::array<ArticulationInfo, numArticulations> articulations {{
 // kit's Hydrogen drumkit.xml.
 inline constexpr std::array<float, 5> layerLowerBounds { 0.0f, 0.2f, 0.38f, 0.58f, 0.79f };
 
-// Sample file names of an articulation, softest layer first.
+// Sample file names of an articulation without extension, softest layer first.
 std::vector<std::string> layerFiles (const ArticulationInfo& info);
 
 std::string paramId (const char* prefix, int piece);

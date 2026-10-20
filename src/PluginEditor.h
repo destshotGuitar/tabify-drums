@@ -44,6 +44,8 @@ private:
 
     Surface surface;
     juce::TextButton kitTab { "KIT" }, mixerTab { "MIXER" };
+    juce::ComboBox kitSelector;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> kitAttachment;
     juce::Slider masterKnob;
     juce::Label masterLabel;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> masterAttachment;

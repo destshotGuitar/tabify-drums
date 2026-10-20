@@ -24,6 +24,12 @@ TabifyDrumsEditor::TabifyDrumsEditor (TabifyDrumsProcessor& p)
     kitTab.onClick = [this] { showPage (true); };
     mixerTab.onClick = [this] { showPage (false); };
 
+    for (const auto& k : kit::kits)
+        kitSelector.addItem (k.name, kitSelector.getNumItems() + 1);
+    kitSelector.setTooltip ("Drum kit");
+    surface.addAndMakeVisible (kitSelector);
+    kitAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (p.apvts, "kit", kitSelector);
+
     masterKnob.setSliderStyle (juce::Slider::RotaryVerticalDrag);
     masterKnob.setTextBoxStyle (juce::Slider::TextBoxRight, false, 64, 18);
     masterKnob.setTextValueSuffix (" dB");
@@ -138,6 +144,7 @@ void TabifyDrumsEditor::showPage (bool kit)
 
     kitTab.setBounds (300, 10, 90, 30);
     mixerTab.setBounds (396, 10, 90, 30);
+    kitSelector.setBounds (510, 11, 200, 28);
     masterLabel.setBounds (720, 10, 70, 30);
     masterKnob.setBounds (795, 4, 140, 42);
 

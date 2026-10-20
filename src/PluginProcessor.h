@@ -4,7 +4,7 @@
 
 #include "DrumEngine.h"
 
-class TabifyDrumsProcessor final : public juce::AudioProcessor
+class TabifyDrumsProcessor final : public juce::AudioProcessor, private juce::Timer
 {
 public:
     struct HitEvent
@@ -16,6 +16,7 @@ public:
     };
 
     TabifyDrumsProcessor();
+    ~TabifyDrumsProcessor() override;
 
     void prepareToPlay (double sampleRate, int samplesPerBlock) override;
     void releaseResources() override {}
@@ -52,11 +53,16 @@ public:
     juce::Array<int> getNotesFor (int articulation) const;
     void resetMappingFor (int articulation);
     void resetAllMappings();
+    bool isKitLoading() const { return loadingKit >= 0; }
 
     juce::AudioProcessorValueTreeState apvts;
 
 private:
     static juce::AudioProcessorValueTreeState::ParameterLayout createLayout();
+
+    void timerCallback() override;
+    int selectedKit() const;
+    void startKitLoad (int kitIndex);
 
     void handleNoteOn (int note, int velocity);
     void trigger (int articulation, int velocity, int note, bool learned);
@@ -75,6 +81,16 @@ private:
     };
     std::array<PieceParams, kit::numPieces> pieceParams;
     std::atomic<float>* masterVolume = nullptr;
+    std::atomic<float>* kitParam = nullptr;
+
+    // Kits load on a background thread; the timer hands finished ones to the
+    // engine. Both kit indices are only touched on the message thread.
+    juce::ThreadPool loaderPool { 1 };
+    juce::CriticalSection loadedLock;
+    std::unique_ptr<DrumEngine::KitSamples> loadedSamples; // guarded by loadedLock
+    std::atomic<double> currentSampleRate { 0.0 };
+    std::atomic<int> activeKit { -1 };
+    std::atomic<int> loadingKit { -1 };
 
     std::array<std::atomic<int>, 128> noteMap;
     std::atomic<int> learnArticulation { -1 };
