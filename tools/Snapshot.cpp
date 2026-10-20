@@ -59,7 +59,7 @@ private:
         else if (tick == 15)
             save ("kit-hit.png");
         else if (tick == 30)
-            play ({ 51, 48, 42 }, 90);
+            play ({ 51, 48, 42, 55, 41 }, 90);
         else if (tick == 33)
             save ("kit-hit2.png");
         else if (tick == 40)

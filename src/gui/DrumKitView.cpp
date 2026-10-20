@@ -9,6 +9,7 @@ namespace
 struct Oval
 {
     float cx, cy, rx, ry;
+    float angle = 0.0f; // tilted cymbals
 
     juce::Rectangle<float> bounds() const { return { cx - rx, cy - ry, rx * 2.0f, ry * 2.0f }; }
     juce::Point<float> centre() const { return { cx, cy }; }
@@ -17,23 +18,27 @@ struct Oval
     {
         juce::Path p;
         p.addEllipse (bounds().withSizeKeepingCentre (rx * 2.0f * scale, ry * 2.0f * scale));
+        p.applyTransform (juce::AffineTransform::rotation (angle, cx, cy));
         return p;
     }
 };
 
-constexpr Oval tom1Head { 1127.0f, 357.0f, 122.0f, 110.0f };
-constexpr Oval tom2Head { 790.0f, 340.0f, 123.0f, 112.0f };
-constexpr Oval floorTomHead { 582.0f, 562.0f, 124.0f, 107.0f };
-constexpr Oval snareHead { 1327.0f, 560.0f, 112.0f, 113.0f };
-constexpr Oval kickHead { 956.0f, 787.0f, 172.0f, 62.0f };
+constexpr Oval tom1Head { 832.0f, 287.0f, 120.0f, 92.0f };
+constexpr Oval tom2Head { 1122.0f, 288.0f, 119.0f, 88.0f };
+constexpr Oval floorTomHead { 1369.0f, 641.0f, 129.0f, 101.0f };
+constexpr Oval snareHead { 567.0f, 625.0f, 130.0f, 97.0f };
+constexpr Oval kickHead { 973.0f, 746.0f, 161.0f, 112.0f };
 
-constexpr Oval rideOval { 460.0f, 425.0f, 183.0f, 153.0f };
-constexpr Oval rideBellOval { 452.0f, 400.0f, 40.0f, 34.0f };
-constexpr Oval crashOval { 1390.0f, 250.0f, 188.0f, 170.0f };
-constexpr Oval hatOval { 1486.0f, 527.0f, 134.0f, 121.0f };
+constexpr Oval crashOval { 565.0f, 190.0f, 193.0f, 145.0f };
+constexpr Oval rideOval { 1460.0f, 285.0f, 180.0f, 145.0f };
+constexpr Oval rideBellOval { 1462.0f, 268.0f, 40.0f, 30.0f };
+constexpr Oval hatOval { 306.0f, 352.0f, 160.0f, 40.0f, 0.2f };
+constexpr Oval splashOval { 1643.0f, 482.0f, 108.0f, 70.0f, 0.12f };
 
-const juce::Rectangle<float> kickShell { 800.0f, 430.0f, 330.0f, 330.0f };
-const juce::Rectangle<float> kickGlowArea { 800.0f, 470.0f, 330.0f, 290.0f };
+const juce::Rectangle<float> kickShell { 815.0f, 470.0f, 320.0f, 276.0f };
+const juce::Rectangle<float> kickPedal { 940.0f, 860.0f, 70.0f, 130.0f };
+const juce::Rectangle<float> kickGlowArea { 815.0f, 470.0f, 320.0f, 280.0f };
+const juce::Rectangle<float> hatStand { 260.0f, 650.0f, 150.0f, 210.0f };
 
 const Oval& headFor (int piece)
 {
@@ -46,6 +51,7 @@ const Oval& headFor (int piece)
         case kit::crash:    return crashOval;
         case kit::ride:     return rideOval;
         case kit::hihat:    return hatOval;
+        case kit::splash:   return splashOval;
         default:            return kickHead;
     }
 }
@@ -76,23 +82,25 @@ void DrumKitView::buildZones()
 
     const auto hatHelp = "Hi-Hat: center = closed, edge = open, Shift-click = semi-open" + more;
     zones.push_back ({ kit::hatClosed, hatOval.path (0.6f), hatOval.path (0.6f), hatHelp });
-    zones.push_back ({ kit::hatOpen, hatOval.path(), hatOval.path(), hatHelp });
+    zones.push_back ({ kit::hatOpen, hatOval.path (1.15f), hatOval.path(), hatHelp });
+    zones.push_back ({ kit::hatPedal, rectPath (hatStand), rectPath (hatStand), "Hi-Hat pedal" + more });
 
     zones.push_back ({ kit::crashHit, crashOval.path(), crashOval.path(), "Crash" + more });
+    zones.push_back ({ kit::splashHit, splashOval.path(), splashOval.path(), "Splash" + more });
 
     const auto rideHelp = "Ride: bow = ride, center = bell" + more;
     zones.push_back ({ kit::rideBell, rideBellOval.path(), rideBellOval.path(), rideHelp });
     zones.push_back ({ kit::rideHit, rideOval.path(), rideOval.path(), rideHelp });
 
     // Pieces that are not in the photo get pads on the floor.
-    const std::array<std::pair<int, const char*>, 3> padList {{
-        { kit::splashHit, "SPLASH" }, { kit::cowbellHit, "COWBELL" }, { kit::clapHit, "CLAP" } }};
+    const std::array<std::pair<int, const char*>, 2> padList {{
+        { kit::cowbellHit, "COWBELL" }, { kit::clapHit, "CLAP" } }};
     for (size_t i = 0; i < padList.size(); ++i)
     {
         Pad pad;
         pad.articulation = padList[i].first;
         pad.label = padList[i].second;
-        pad.bounds = { 70.0f, 730.0f + 92.0f * (float) i, 200.0f, 76.0f };
+        pad.bounds = { 1690.0f, 890.0f + 88.0f * (float) i, 200.0f, 72.0f };
         pads.push_back (pad);
         juce::Path padShape;
         padShape.addRoundedRectangle (pad.bounds, 12.0f);
@@ -103,7 +111,7 @@ void DrumKitView::buildZones()
     const auto snareHelp = "Snare: center = snare, rim = rimshot, shell = side stick" + more;
     zones.push_back ({ kit::snareHit, snareHead.path (0.72f), snareHead.path (0.72f), snareHelp });
     zones.push_back ({ kit::snareRimshot, snareHead.path (1.05f), snareHead.path(), snareHelp });
-    zones.push_back ({ kit::snareSideStick, rectPath ({ 1215.0f, 560.0f, 226.0f, 175.0f }), snareHead.path (1.08f), snareHelp });
+    zones.push_back ({ kit::snareSideStick, rectPath ({ 437.0f, 625.0f, 260.0f, 160.0f }), snareHead.path (1.08f), snareHelp });
 
     auto drumZone = [] (const Oval& head, float shellBottom)
     {
@@ -112,12 +120,13 @@ void DrumKitView::buildZones()
         return p;
     };
 
-    zones.push_back ({ kit::tom1Hit, drumZone (tom1Head, 540.0f), tom1Head.path(), "Tom 1" + more });
-    zones.push_back ({ kit::tom2Hit, drumZone (tom2Head, 525.0f), tom2Head.path(), "Tom 2" + more });
-    zones.push_back ({ kit::floorTomHit, drumZone (floorTomHead, 735.0f), floorTomHead.path(), "Floor Tom" + more });
+    zones.push_back ({ kit::tom1Hit, drumZone (tom1Head, 470.0f), tom1Head.path(), "Tom 1" + more });
+    zones.push_back ({ kit::tom2Hit, drumZone (tom2Head, 470.0f), tom2Head.path(), "Tom 2" + more });
+    zones.push_back ({ kit::floorTomHit, drumZone (floorTomHead, 835.0f), floorTomHead.path(), "Floor Tom" + more });
 
     auto kickArea = kickHead.path (1.05f);
     kickArea.addRectangle (kickShell);
+    kickArea.addRectangle (kickPedal);
     zones.push_back ({ kit::kickHit, kickArea, kickHead.path(), "Kick" + more });
 }
 
@@ -265,7 +274,7 @@ void DrumKitView::paint (juce::Graphics& g)
 
     // Cymbals are redrawn from the photo on top of the drums, so drum glows
     // stay underneath them and the cymbals can swing.
-    for (const auto piece : { kit::ride, kit::crash, kit::hihat })
+    for (const auto piece : { kit::ride, kit::crash, kit::splash, kit::hihat })
         drawCymbal (g, piece);
 
     drawPads (g);
