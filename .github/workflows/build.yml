@@ -97,7 +97,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" dist/*.zip \
-            --repo "$GITHUB_REPOSITORY" \
-            --title "Tabify Drums ${GITHUB_REF_NAME#v}" \
-            --notes "Download the archive for your platform, unzip it and copy the plugin format you use into your plugin folder (paths are in the README). Builds are not code-signed: on macOS remove the quarantine flag with xattr -dr com.apple.quarantine <plugin>."
+          # The release may already exist (e.g. created by hand with some of the
+          # archives); then just add or replace the archives.
+          if ! gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            gh release create "$GITHUB_REF_NAME" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "Tabify Drums ${GITHUB_REF_NAME#v}" \
+              --notes "Download the archive for your platform, unzip it and copy the plugin format you use into your plugin folder (paths are in the README). Builds are not code-signed: on macOS remove the quarantine flag with xattr -dr com.apple.quarantine <plugin>."
+          fi
+          gh release upload "$GITHUB_REF_NAME" dist/*.zip --repo "$GITHUB_REPOSITORY" --clobber
