@@ -1,7 +1,9 @@
-# OpenDrums
+# Tabify Drums
 
 Свободный кроссплатформенный барабанный плагин (VST3 / CLAP / LV2 / AU / Standalone)
 на JUCE 8. Идея и набор функций — по мотивам Power Drum Kit.
+
+Установка на Linux одной командой: `scripts/install.sh`.
 
 ## Что уже есть (v0.1)
 
@@ -35,10 +37,10 @@ Floor Tom 41, 43 · Crash 49, 57 · Ride 51 · Bell 53 · Ride 24" 59 · Splash 
 ```bash
 git clone --recursive <repo> && cd drumkit
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
-cmake --build build --target OpenDrums_All OpenDrums_CLAP
+cmake --build build --target TabifyDrums_All TabifyDrums_CLAP
 ```
 
-Результат — в `build/OpenDrums_artefacts/Release/{VST3,CLAP,LV2,Standalone}`.
+Результат — в `build/TabifyDrums_artefacts/Release/{VST3,CLAP,LV2,Standalone}`.
 
 Зависимости на Fedora:
 
@@ -52,16 +54,45 @@ sudo dnf install cmake ninja-build gcc-c++ alsa-lib-devel pipewire-jack-audio-co
 Windows и macOS собираются в GitHub Actions (`.github/workflows/build.yml`) — артефакты
 на каждой сборке.
 
+## Как менять самому
+
+После любых изменений: `scripts/install.sh` — пересоберёт и установит плагин,
+затем в DAW переоткрой плагин (или пересканируй плагины).
+
+### Сэмплы
+
+Все сэмплы — в `resources/kits/GMRockKit/`. У каждой артикуляции 5 файлов, от тихого
+удара к сильному: `-Softest`, `-Soft`, `-Med`, `-Hard`, `-Hardest`. Например, бочка:
+`Kick-Softest.wav` … `Kick-Hardest.wav`. Чтобы заменить звук — положи свои WAV
+с теми же именами (любая частота дискретизации; стерео сводится в моно).
+Если сэмпл один — скопируй его во все 5 файлов.
+
+Какие файлы к какому барабану и какие ноты по умолчанию — в таблице
+`src/KitDefinition.h` (`articulations`).
+
+### Интерфейс
+
+| Что | Где |
+|---|---|
+| Фото установки | `resources/ui/kit.jpg` (1920×1088) |
+| Логотип | `resources/ui/logo.png` (PNG с прозрачностью) |
+| Зоны клика на фото | `src/gui/DrumKitView.cpp`, константы `tom1Head`, `rideOval`… в пикселях фото |
+| Цвета | `src/gui/DrumLookAndFeel.h`, `palette` |
+| Шапка, вкладки, нижняя панель | `src/PluginEditor.cpp` (`Surface::paint`, `showPage`) |
+| Название плагина | `CMakeLists.txt`, `PRODUCT_NAME` |
+
+Если заменишь фото на другое — нужно поправить зоны (центр и радиусы овалов).
+
 ## Проверка
 
 ```bash
-cmake --build build --target OpenDrumsTestHost OpenDrumsSnapshot
-build/OpenDrumsTestHost_artefacts/Release/OpenDrumsTestHost build/OpenDrums_artefacts/Release/VST3/OpenDrums.vst3 out
-build/OpenDrumsSnapshot out
+cmake --build build --target TabifyDrumsTestHost TabifyDrumsSnapshot
+build/TabifyDrumsTestHost_artefacts/Release/TabifyDrumsTestHost build/TabifyDrums_artefacts/Release/VST3/"Tabify Drums.vst3" out
+build/TabifyDrumsSnapshot out
 ```
 
-`OpenDrumsTestHost` грузит VST3 как DAW, проверяет каждую артикуляцию, слои, сохранение
-состояния и пишет `out/beat.wav`. `OpenDrumsSnapshot` сохраняет скриншоты интерфейса.
+`TabifyDrumsTestHost` грузит VST3 как DAW, проверяет каждую артикуляцию, слои, сохранение
+состояния и пишет `out/beat.wav`. `TabifyDrumsSnapshot` сохраняет скриншоты интерфейса.
 
 ## Планы
 

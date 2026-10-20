@@ -1,9 +1,9 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
-OpenDrumsProcessor::OpenDrumsProcessor()
+TabifyDrumsProcessor::TabifyDrumsProcessor()
     : AudioProcessor (BusesProperties().withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
-      apvts (*this, nullptr, "OpenDrums", createLayout())
+      apvts (*this, nullptr, "TabifyDrums", createLayout())
 {
     for (int p = 0; p < kit::numPieces; ++p)
     {
@@ -22,7 +22,7 @@ OpenDrumsProcessor::OpenDrumsProcessor()
     resetAllMappings();
 }
 
-juce::AudioProcessorValueTreeState::ParameterLayout OpenDrumsProcessor::createLayout()
+juce::AudioProcessorValueTreeState::ParameterLayout TabifyDrumsProcessor::createLayout()
 {
     juce::AudioProcessorValueTreeState::ParameterLayout layout;
 
@@ -56,17 +56,17 @@ juce::AudioProcessorValueTreeState::ParameterLayout OpenDrumsProcessor::createLa
     return layout;
 }
 
-void OpenDrumsProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
+void TabifyDrumsProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
     engine.prepare (sampleRate, samplesPerBlock);
 }
 
-bool OpenDrumsProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
+bool TabifyDrumsProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
 {
     return layouts.getMainOutputChannelSet() == juce::AudioChannelSet::stereo();
 }
 
-void OpenDrumsProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi)
+void TabifyDrumsProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi)
 {
     juce::ScopedNoDenormals noDenormals;
 
@@ -122,7 +122,7 @@ void OpenDrumsProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
             peaks[i] = blockPeaks[i];
 }
 
-void OpenDrumsProcessor::handleNoteOn (int note, int velocity)
+void TabifyDrumsProcessor::handleNoteOn (int note, int velocity)
 {
     if (! juce::isPositiveAndBelow (note, 128))
         return;
@@ -140,7 +140,7 @@ void OpenDrumsProcessor::handleNoteOn (int note, int velocity)
         trigger (articulation, velocity, note, false);
 }
 
-void OpenDrumsProcessor::trigger (int articulation, int velocity, int note, bool learned)
+void TabifyDrumsProcessor::trigger (int articulation, int velocity, int note, bool learned)
 {
     engine.trigger (articulation, (float) velocity / 127.0f);
 
@@ -149,7 +149,7 @@ void OpenDrumsProcessor::trigger (int articulation, int velocity, int note, bool
         hitEvents[(size_t) scope.startIndex1] = { articulation, velocity, note, learned };
 }
 
-bool OpenDrumsProcessor::popHitEvent (HitEvent& event)
+bool TabifyDrumsProcessor::popHitEvent (HitEvent& event)
 {
     const auto scope = hitFifo.read (1);
     if (scope.blockSize1 == 0)
@@ -159,19 +159,19 @@ bool OpenDrumsProcessor::popHitEvent (HitEvent& event)
     return true;
 }
 
-void OpenDrumsProcessor::playFromEditor (int articulation, int velocity)
+void TabifyDrumsProcessor::playFromEditor (int articulation, int velocity)
 {
     const auto scope = editorFifo.write (1);
     if (scope.blockSize1 > 0)
         editorHits[(size_t) scope.startIndex1] = { articulation, velocity };
 }
 
-float OpenDrumsProcessor::popPeak (int channel)
+float TabifyDrumsProcessor::popPeak (int channel)
 {
     return peaks[(size_t) channel].exchange (0.0f);
 }
 
-juce::Array<int> OpenDrumsProcessor::getNotesFor (int articulation) const
+juce::Array<int> TabifyDrumsProcessor::getNotesFor (int articulation) const
 {
     juce::Array<int> notes;
     for (int n = 0; n < 128; ++n)
@@ -180,7 +180,7 @@ juce::Array<int> OpenDrumsProcessor::getNotesFor (int articulation) const
     return notes;
 }
 
-void OpenDrumsProcessor::resetMappingFor (int articulation)
+void TabifyDrumsProcessor::resetMappingFor (int articulation)
 {
     for (auto& entry : noteMap)
         if (entry.load() == articulation)
@@ -191,7 +191,7 @@ void OpenDrumsProcessor::resetMappingFor (int articulation)
             noteMap[(size_t) note] = articulation;
 }
 
-void OpenDrumsProcessor::resetAllMappings()
+void TabifyDrumsProcessor::resetAllMappings()
 {
     for (auto& entry : noteMap)
         entry = -1;
@@ -202,7 +202,7 @@ void OpenDrumsProcessor::resetAllMappings()
                 noteMap[(size_t) note] = a;
 }
 
-juce::String OpenDrumsProcessor::serialiseNoteMap() const
+juce::String TabifyDrumsProcessor::serialiseNoteMap() const
 {
     // Stored by articulation id so the mapping survives reordering the kit table.
     juce::StringArray entries;
@@ -212,7 +212,7 @@ juce::String OpenDrumsProcessor::serialiseNoteMap() const
     return entries.joinIntoString (",");
 }
 
-void OpenDrumsProcessor::restoreNoteMap (const juce::String& text)
+void TabifyDrumsProcessor::restoreNoteMap (const juce::String& text)
 {
     for (auto& entry : noteMap)
         entry = -1;
@@ -230,7 +230,7 @@ void OpenDrumsProcessor::restoreNoteMap (const juce::String& text)
     }
 }
 
-void OpenDrumsProcessor::getStateInformation (juce::MemoryBlock& destData)
+void TabifyDrumsProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
     auto state = apvts.copyState();
     state.setProperty ("noteMap", serialiseNoteMap(), nullptr);
@@ -238,7 +238,7 @@ void OpenDrumsProcessor::getStateInformation (juce::MemoryBlock& destData)
         copyXmlToBinary (*xml, destData);
 }
 
-void OpenDrumsProcessor::setStateInformation (const void* data, int sizeInBytes)
+void TabifyDrumsProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
     const auto xml = getXmlFromBinary (data, sizeInBytes);
     if (xml == nullptr || ! xml->hasTagName (apvts.state.getType()))
@@ -250,12 +250,12 @@ void OpenDrumsProcessor::setStateInformation (const void* data, int sizeInBytes)
     apvts.replaceState (state);
 }
 
-juce::AudioProcessorEditor* OpenDrumsProcessor::createEditor()
+juce::AudioProcessorEditor* TabifyDrumsProcessor::createEditor()
 {
-    return new OpenDrumsEditor (*this);
+    return new TabifyDrumsEditor (*this);
 }
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
-    return new OpenDrumsProcessor();
+    return new TabifyDrumsProcessor();
 }

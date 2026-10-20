@@ -5,7 +5,7 @@ if(APPLE)
     set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "Universal binary")
 endif()
 
-project(OpenDrums VERSION 0.1.0 LANGUAGES C CXX)
+project(TabifyDrums VERSION 0.1.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -14,17 +14,17 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 add_subdirectory(libs/JUCE)
 add_subdirectory(libs/clap-juce-extensions EXCLUDE_FROM_ALL)
 
-set(OPENDRUMS_FORMATS VST3 LV2 Standalone)
+set(TABIFY_FORMATS VST3 LV2 Standalone)
 if(APPLE)
-    list(APPEND OPENDRUMS_FORMATS AU)
+    list(APPEND TABIFY_FORMATS AU)
 endif()
 
-juce_add_plugin(OpenDrums
-    COMPANY_NAME "OpenDrums"
-    PRODUCT_NAME "OpenDrums"
-    BUNDLE_ID com.opendrums.opendrums
-    PLUGIN_MANUFACTURER_CODE Odrm
-    PLUGIN_CODE Odk1
+juce_add_plugin(TabifyDrums
+    COMPANY_NAME "Tabify"
+    PRODUCT_NAME "Tabify Drums"
+    BUNDLE_ID com.tabify.drums
+    PLUGIN_MANUFACTURER_CODE Tbfy
+    PLUGIN_CODE Tbd1
     IS_SYNTH TRUE
     NEEDS_MIDI_INPUT TRUE
     NEEDS_MIDI_OUTPUT FALSE
@@ -33,26 +33,26 @@ juce_add_plugin(OpenDrums
     COPY_PLUGIN_AFTER_BUILD FALSE
     VST3_CATEGORIES Instrument Drum
     AU_MAIN_TYPE kAudioUnitType_MusicDevice
-    LV2URI "https://github.com/opendrums/opendrums"
-    FORMATS ${OPENDRUMS_FORMATS})
+    LV2URI "urn:tabify:drums"
+    FORMATS ${TABIFY_FORMATS})
 
-clap_juce_extensions_plugin(TARGET OpenDrums
-    CLAP_ID "com.opendrums.opendrums"
+clap_juce_extensions_plugin(TARGET TabifyDrums
+    CLAP_ID "com.tabify.drums"
     CLAP_FEATURES instrument drum-machine stereo)
 
-file(GLOB OPENDRUMS_KIT_SAMPLES CONFIGURE_DEPENDS
+file(GLOB TABIFY_KIT_SAMPLES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/resources/kits/GMRockKit/*.wav")
-juce_add_binary_data(OpenDrumsKitData
+juce_add_binary_data(TabifyDrumsKitData
     HEADER_NAME KitData.h
     NAMESPACE KitData
-    SOURCES ${OPENDRUMS_KIT_SAMPLES})
+    SOURCES ${TABIFY_KIT_SAMPLES})
 
-juce_add_binary_data(OpenDrumsUiData
+juce_add_binary_data(TabifyDrumsUiData
     HEADER_NAME UiData.h
     NAMESPACE UiData
-    SOURCES resources/ui/kit.jpg)
+    SOURCES resources/ui/kit.jpg resources/ui/logo.png)
 
-target_sources(OpenDrums PRIVATE
+target_sources(TabifyDrums PRIVATE
     src/KitDefinition.cpp
     src/DrumEngine.cpp
     src/PluginProcessor.cpp
@@ -61,9 +61,9 @@ target_sources(OpenDrums PRIVATE
     src/gui/DrumKitView.cpp
     src/gui/MixerView.cpp)
 
-target_include_directories(OpenDrums PRIVATE src)
+target_include_directories(TabifyDrums PRIVATE src)
 
-target_compile_definitions(OpenDrums PUBLIC
+target_compile_definitions(TabifyDrums PUBLIC
     JUCE_WEB_BROWSER=0
     JUCE_USE_CURL=0
     JUCE_VST3_CAN_REPLACE_VST2=0
@@ -76,18 +76,18 @@ if(UNIX AND NOT APPLE)
     pkg_check_modules(ALSA QUIET alsa)
     if(NOT ALSA_FOUND)
         message(WARNING "ALSA headers not found (install alsa-lib-devel): standalone app will have no audio")
-        target_compile_definitions(OpenDrums PUBLIC JUCE_ALSA=0)
+        target_compile_definitions(TabifyDrums PUBLIC JUCE_ALSA=0)
     endif()
     pkg_check_modules(JACK QUIET jack)
     if(JACK_FOUND)
-        target_compile_definitions(OpenDrums PUBLIC JUCE_JACK=1)
+        target_compile_definitions(TabifyDrums PUBLIC JUCE_JACK=1)
     endif()
 endif()
 
-target_link_libraries(OpenDrums
+target_link_libraries(TabifyDrums
     PRIVATE
-        OpenDrumsKitData
-        OpenDrumsUiData
+        TabifyDrumsKitData
+        TabifyDrumsUiData
         juce::juce_audio_utils
         juce::juce_dsp
     PUBLIC
@@ -96,17 +96,17 @@ target_link_libraries(OpenDrums
         juce::juce_recommended_warning_flags)
 
 # Headless host that loads the built VST3, renders audio and takes editor
-# screenshots: cmake --build build --target OpenDrumsTestHost
-option(OPENDRUMS_BUILD_TESTHOST "Build the plugin test host" ON)
-if(OPENDRUMS_BUILD_TESTHOST)
-    juce_add_console_app(OpenDrumsTestHost PRODUCT_NAME "OpenDrumsTestHost")
-    target_sources(OpenDrumsTestHost PRIVATE tools/TestHost.cpp)
-    target_compile_definitions(OpenDrumsTestHost PRIVATE
+# screenshots: cmake --build build --target TabifyDrumsTestHost
+option(TABIFY_BUILD_TESTHOST "Build the plugin test host" ON)
+if(TABIFY_BUILD_TESTHOST)
+    juce_add_console_app(TabifyDrumsTestHost PRODUCT_NAME "TabifyDrumsTestHost")
+    target_sources(TabifyDrumsTestHost PRIVATE tools/TestHost.cpp)
+    target_compile_definitions(TabifyDrumsTestHost PRIVATE
         JUCE_PLUGINHOST_VST3=1
         JUCE_MODAL_LOOPS_PERMITTED=1
         JUCE_WEB_BROWSER=0
         JUCE_USE_CURL=0)
-    target_link_libraries(OpenDrumsTestHost PRIVATE
+    target_link_libraries(TabifyDrumsTestHost PRIVATE
         juce::juce_audio_processors
         juce::juce_audio_formats
         juce::juce_gui_basics
@@ -114,10 +114,10 @@ if(OPENDRUMS_BUILD_TESTHOST)
 endif()
 
 # Offscreen editor screenshots, linking the plugin code directly:
-# cmake --build build --target OpenDrumsSnapshot
-if(OPENDRUMS_BUILD_TESTHOST)
-    add_executable(OpenDrumsSnapshot tools/Snapshot.cpp)
-    target_link_libraries(OpenDrumsSnapshot PRIVATE OpenDrums)
-    target_include_directories(OpenDrumsSnapshot PRIVATE $<TARGET_PROPERTY:OpenDrums,INCLUDE_DIRECTORIES>)
-    target_compile_definitions(OpenDrumsSnapshot PRIVATE $<TARGET_PROPERTY:OpenDrums,COMPILE_DEFINITIONS>)
+# cmake --build build --target TabifyDrumsSnapshot
+if(TABIFY_BUILD_TESTHOST)
+    add_executable(TabifyDrumsSnapshot tools/Snapshot.cpp)
+    target_link_libraries(TabifyDrumsSnapshot PRIVATE TabifyDrums)
+    target_include_directories(TabifyDrumsSnapshot PRIVATE $<TARGET_PROPERTY:TabifyDrums,INCLUDE_DIRECTORIES>)
+    target_compile_definitions(TabifyDrumsSnapshot PRIVATE $<TARGET_PROPERTY:TabifyDrums,COMPILE_DEFINITIONS>)
 endif()

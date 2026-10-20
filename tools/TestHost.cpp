@@ -1,7 +1,7 @@
 // Loads the built plugin the way a DAW would, renders a beat to a WAV file,
 // checks every articulation makes sound and round-trips the state.
 //
-// usage: OpenDrumsTestHost <plugin.vst3> <output-dir>
+// usage: TabifyDrumsTestHost <plugin.vst3> <output-dir>
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_audio_formats/juce_audio_formats.h>
@@ -55,7 +55,7 @@ int main (int argc, char** argv)
 {
     if (argc < 3)
     {
-        std::cerr << "usage: OpenDrumsTestHost <plugin.vst3> <output-dir>\n";
+        std::cerr << "usage: TabifyDrumsTestHost <plugin.vst3> <output-dir>\n";
         return 2;
     }
 
@@ -162,7 +162,7 @@ int main (int argc, char** argv)
     param->setValueNotifyingHost (param->getDefaultValue());
 
     // The hosted editor is only a wrapper around the plugin's own window, so
-    // screenshots are taken by OpenDrumsSnapshot instead.
+    // screenshots are taken by TabifyDrumsSnapshot instead.
     std::unique_ptr<juce::AudioProcessorEditor> editor (plugin->createEditorIfNeeded());
     check (editor != nullptr, "editor created " + juce::String (editor ? editor->getWidth() : 0) + "x" + juce::String (editor ? editor->getHeight() : 0));
     if (editor != nullptr)

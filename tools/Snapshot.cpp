@@ -2,7 +2,7 @@
 // mid-animation right after a few hits, and the mixer page with meters moving.
 // It links the plugin code directly, so no host or audio device is needed.
 //
-// usage: OpenDrumsSnapshot <output-dir>
+// usage: TabifyDrumsSnapshot <output-dir>
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_gui_basics/juce_gui_basics.h>
@@ -92,7 +92,7 @@ int main (int argc, char** argv)
 {
     if (argc < 2)
     {
-        std::cerr << "usage: OpenDrumsSnapshot <output-dir>\n";
+        std::cerr << "usage: TabifyDrumsSnapshot <output-dir>\n";
         return 2;
     }
 

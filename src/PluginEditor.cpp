@@ -8,7 +8,7 @@ juce::String middleDot()
 }
 } // namespace
 
-OpenDrumsEditor::OpenDrumsEditor (OpenDrumsProcessor& p)
+TabifyDrumsEditor::TabifyDrumsEditor (TabifyDrumsProcessor& p)
     : AudioProcessorEditor (p), processor (p), mixerView (p.apvts)
 {
     setLookAndFeel (&lookAndFeel);
@@ -74,7 +74,7 @@ OpenDrumsEditor::OpenDrumsEditor (OpenDrumsProcessor& p)
     showPage (true);
 
     // Drop hits that queued up while no editor was open.
-    for (OpenDrumsProcessor::HitEvent e; processor.popHitEvent (e);)
+    for (TabifyDrumsProcessor::HitEvent e; processor.popHitEvent (e);)
         ;
 
     setResizable (true, true);
@@ -86,17 +86,17 @@ OpenDrumsEditor::OpenDrumsEditor (OpenDrumsProcessor& p)
     startTimerHz (60);
 }
 
-OpenDrumsEditor::~OpenDrumsEditor()
+TabifyDrumsEditor::~TabifyDrumsEditor()
 {
     setLookAndFeel (nullptr);
 }
 
-void OpenDrumsEditor::resized()
+void TabifyDrumsEditor::resized()
 {
     surface.setTransform (juce::AffineTransform::scale ((float) getWidth() / (float) designWidth));
 }
 
-void OpenDrumsEditor::Surface::paint (juce::Graphics& g)
+void TabifyDrumsEditor::Surface::paint (juce::Graphics& g)
 {
     g.fillAll (palette::background);
 
@@ -106,12 +106,19 @@ void OpenDrumsEditor::Surface::paint (juce::Graphics& g)
     g.setColour (juce::Colours::black);
     g.drawHorizontalLine (headerHeight - 1, 0.0f, (float) getWidth());
 
+    // Logo: resources/ui/logo.png, scaled to fit the header height.
+    const auto logoArea = juce::Rectangle<float> (18.0f, 10.0f, 90.0f, 30.0f);
+    g.drawImageWithin (logo, (int) logoArea.getX(), (int) logoArea.getY(), (int) logoArea.getWidth(), (int) logoArea.getHeight(),
+                       juce::RectanglePlacement::xLeft | juce::RectanglePlacement::yMid | juce::RectanglePlacement::onlyReduceInSize);
+    const auto logoWidth = logo.isValid() ? logoArea.getHeight() * (float) logo.getWidth() / (float) logo.getHeight() : 0.0f;
+
     g.setColour (palette::accent);
-    g.setFont (juce::FontOptions (24.0f, juce::Font::bold));
-    g.drawText ("OPEN DRUMS", header.withTrimmedLeft (18).withWidth (190), juce::Justification::centredLeft);
+    g.setFont (juce::FontOptions (22.0f, juce::Font::bold));
+    const auto drumsArea = header.withTrimmedLeft (18 + (int) logoWidth + 8).withWidth (90);
+    g.drawText ("DRUMS", drumsArea, juce::Justification::centredLeft);
     g.setColour (palette::textDim);
     g.setFont (juce::FontOptions (11.0f));
-    g.drawText ("v" JucePlugin_VersionString, header.withTrimmedLeft (182).withWidth (60), juce::Justification::centredLeft);
+    g.drawText ("v" JucePlugin_VersionString, drumsArea.withTrimmedLeft (82).withWidth (60), juce::Justification::centredLeft);
 
     auto info = getLocalBounds().removeFromBottom (infoHeight);
     g.setColour (learning ? palette::accent.withAlpha (0.18f) : palette::panel);
@@ -120,7 +127,7 @@ void OpenDrumsEditor::Surface::paint (juce::Graphics& g)
     g.drawHorizontalLine (info.getY(), 0.0f, (float) getWidth());
 }
 
-void OpenDrumsEditor::showPage (bool kit)
+void TabifyDrumsEditor::showPage (bool kit)
 {
     kitView.setVisible (kit);
     mixerView.setVisible (! kit);
@@ -143,12 +150,12 @@ void OpenDrumsEditor::showPage (bool kit)
     cancelLearnButton.setBounds (helpLabel.getBounds().removeFromRight (80).reduced (0, 2));
 }
 
-juce::String OpenDrumsEditor::noteName (int note)
+juce::String TabifyDrumsEditor::noteName (int note)
 {
     return juce::MidiMessage::getMidiNoteName (note, true, true, 3) + " (" + juce::String (note) + ")";
 }
 
-juce::String OpenDrumsEditor::describeNotes (int articulation) const
+juce::String TabifyDrumsEditor::describeNotes (int articulation) const
 {
     juce::StringArray names;
     for (const auto note : processor.getNotesFor (articulation))
@@ -156,7 +163,7 @@ juce::String OpenDrumsEditor::describeNotes (int articulation) const
     return names.isEmpty() ? juce::String ("no note") : names.joinIntoString (", ");
 }
 
-void OpenDrumsEditor::showPieceMenu (int piece)
+void TabifyDrumsEditor::showPieceMenu (int piece)
 {
     enum { playBase = 1000, learnBase = 2000, resetBase = 3000, cancelLearn = 4000, resetAll = 4001 };
 
@@ -182,7 +189,7 @@ void OpenDrumsEditor::showPieceMenu (int piece)
     menu.addItem (resetAll, "Reset all MIDI mappings");
 
     menu.showMenuAsync (juce::PopupMenu::Options().withMousePosition(),
-                        [safe = juce::Component::SafePointer<OpenDrumsEditor> (this)] (int result)
+                        [safe = juce::Component::SafePointer<TabifyDrumsEditor> (this)] (int result)
                         {
                             if (safe == nullptr || result == 0)
                                 return;
@@ -201,7 +208,7 @@ void OpenDrumsEditor::showPieceMenu (int piece)
                         });
 }
 
-void OpenDrumsEditor::updateLearnState()
+void TabifyDrumsEditor::updateLearnState()
 {
     const auto learning = processor.getMidiLearnArticulation();
     if (learning == lastLearnArticulation)
@@ -223,9 +230,9 @@ void OpenDrumsEditor::updateLearnState()
     surface.repaint();
 }
 
-void OpenDrumsEditor::timerCallback()
+void TabifyDrumsEditor::timerCallback()
 {
-    OpenDrumsProcessor::HitEvent e;
+    TabifyDrumsProcessor::HitEvent e;
     while (processor.popHitEvent (e))
     {
         kitView.notifyHit (e.articulation, e.velocity);

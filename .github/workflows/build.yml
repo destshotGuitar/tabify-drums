@@ -34,19 +34,19 @@ jobs:
             libxext-dev libxinerama-dev libxrandr-dev libxrender-dev libgl1-mesa-dev
 
       - name: Configure
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DOPENDRUMS_BUILD_TESTHOST=OFF
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DTABIFY_BUILD_TESTHOST=OFF
 
       - name: Build
-        run: cmake --build build --config Release --parallel 4 --target OpenDrums_All OpenDrums_CLAP
+        run: cmake --build build --config Release --parallel 4 --target TabifyDrums_All TabifyDrums_CLAP
 
       - name: Collect artefacts
         shell: bash
         run: |
           mkdir -p dist
-          cp -R build/OpenDrums_artefacts/Release/* dist/
+          cp -R build/TabifyDrums_artefacts/Release/* dist/
           rm -f dist/*.a dist/*.lib
 
       - uses: actions/upload-artifact@v4
         with:
-          name: OpenDrums-${{ matrix.name }}
+          name: TabifyDrums-${{ matrix.name }}
           path: dist

@@ -4,7 +4,7 @@
 
 #include "DrumEngine.h"
 
-class OpenDrumsProcessor final : public juce::AudioProcessor
+class TabifyDrumsProcessor final : public juce::AudioProcessor
 {
 public:
     struct HitEvent
@@ -15,7 +15,7 @@ public:
         bool learned = false; // the note was just assigned by MIDI learn
     };
 
-    OpenDrumsProcessor();
+    TabifyDrumsProcessor();
 
     void prepareToPlay (double sampleRate, int samplesPerBlock) override;
     void releaseResources() override {}
@@ -94,5 +94,5 @@ private:
 
     std::array<std::atomic<float>, kit::numPieces + 1> peaks;
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (OpenDrumsProcessor)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TabifyDrumsProcessor)
 };

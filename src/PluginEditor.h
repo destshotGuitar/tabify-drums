@@ -1,15 +1,16 @@
 #pragma once
 
 #include "PluginProcessor.h"
+#include <UiData.h>
 #include "gui/DrumKitView.h"
 #include "gui/DrumLookAndFeel.h"
 #include "gui/MixerView.h"
 
-class OpenDrumsEditor final : public juce::AudioProcessorEditor, private juce::Timer
+class TabifyDrumsEditor final : public juce::AudioProcessorEditor, private juce::Timer
 {
 public:
-    explicit OpenDrumsEditor (OpenDrumsProcessor&);
-    ~OpenDrumsEditor() override;
+    explicit TabifyDrumsEditor (TabifyDrumsProcessor&);
+    ~TabifyDrumsEditor() override;
 
     void resized() override;
 
@@ -27,6 +28,7 @@ private:
     public:
         void paint (juce::Graphics&) override;
         bool learning = false;
+        juce::Image logo = juce::ImageCache::getFromMemory (UiData::logo_png, UiData::logo_pngSize);
     };
 
     void timerCallback() override;
@@ -36,7 +38,7 @@ private:
     static juce::String noteName (int note);
     juce::String describeNotes (int articulation) const;
 
-    OpenDrumsProcessor& processor;
+    TabifyDrumsProcessor& processor;
     DrumLookAndFeel lookAndFeel;
     juce::TooltipWindow tooltips { this, 600 };
 
@@ -56,5 +58,5 @@ private:
     juce::String statusText;
     int lastLearnArticulation = -2;
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (OpenDrumsEditor)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TabifyDrumsEditor)
 };
