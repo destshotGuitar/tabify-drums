@@ -1,129 +1,118 @@
 # Tabify Drums
 
-Свободный кроссплатформенный барабанный плагин (VST3 / CLAP / LV2 / AU / Standalone)
-на JUCE 8. Идея и набор функций — по мотивам Power Drum Kit.
+**English** · [Русский](README.ru.md)
 
-Установка на Linux одной командой: `scripts/install.sh`.
+![Tabify Drums](docs/kit.png)
 
-## Что уже есть (v0.1)
+A free, open-source, cross-platform drum sampler plugin — VST3, CLAP, LV2, AU and
+Standalone — built with JUCE 8.
 
-- Два кита, переключаются списком в шапке: **Muldjord Kit** (DrumGizmo, CC BY 4.0,
-  по умолчанию) и **GM Rock Kit** (Hydrogen, GPL). 18 артикуляций, 5 слоёв по силе удара;
-  чего нет в Muldjord (римшот, педаль и полуоткрытый хэт, сплэш, ковбелл, хлопок) —
-  берётся из GM Rock. Авторы — `resources/kits/CREDITS.md`.
-- Раскладка нот General MIDI, **MIDI Learn** для любой артикуляции (правый клик по барабану).
-- Хай-хэт: закрытый / полуоткрытый / открытый / педаль, взаимное заглушение (choke).
-- Фото установки (вид сверху), которое реагирует на удары: подсветка и волна по пластику,
-  качание и блеск тарелок, открытие хэта. По нему можно играть мышью; Splash, Cowbell
-  и Clap, которых нет на фото, — пэды справа внизу.
-- Микшер: 10 каналов + мастер, громкость, панорама, компрессор, Mute/Solo, индикаторы уровня.
-- Масштабируемое окно, сохранение состояния в проекте DAW.
+## Features
 
-### Как играть мышью
+- **Two built-in kits**, switchable from the header:
+  - **Muldjord Kit** (default) — a multi-mic acoustic kit from [DrumGizmo](https://drumgizmo.org),
+    mixed down per instrument from close, overhead and room microphones.
+  - **GM Rock Kit** — from the [Hydrogen](https://github.com/hydrogen-music/hydrogen) project.
+- **18 articulations** with 5 velocity layers each: kick, snare / rimshot / side stick,
+  hi-hat closed / semi-open / open / pedal with choke, two rack toms, floor tom, crash,
+  ride / bell / 24" ride, splash, cowbell, hand clap.
+- **General MIDI note map** and **MIDI learn** for every articulation (right-click a drum).
+- **Interactive kit photo**: drums light up and ripple, cymbals swing and shine,
+  the hi-hat opens — and you can play it with the mouse.
+- **Mixer**: 10 channels plus master with fader, pan, one-knob compressor,
+  mute / solo and level meters.
+- Resizable UI; everything is saved with your DAW project.
 
-| Где кликать | Что звучит |
-|---|---|
-| Малый: центр / обод / корпус | Snare / Rimshot / Side Stick |
-| Хэт (малая левая тарелка): центр / край / Shift+клик / стойка | Closed / Open / Semi-Open / Pedal |
-| Райд (большая правая): поле / купол | Ride / Bell |
-| Пэды справа внизу | Splash / Cowbell / Clap |
-| Правый клик по любому барабану | Все артикуляции, MIDI Learn, сброс нот |
+![Mixer](docs/mixer.png)
 
-### Ноты по умолчанию (GM)
+## Install
 
-Kick 36, 35 · Snare 38 · Rimshot 40 · Side Stick 37 · Clap 39 · HH Closed 42 ·
-HH Pedal 44 · HH Open 46 · HH Semi 23 · Tom 1 48, 50 · Tom 2 45, 47 ·
-Floor Tom 41, 43 · Crash 49, 57 · Ride 51 · Bell 53 · Ride 24" 59 · Splash 55 · Cowbell 56
+Download the archive for your platform from
+[Releases](https://github.com/destshotGuitar/tabify-drums/releases), unzip it and copy
+the format you need to your plugin folder:
 
-## Сборка
+| Format | Windows | macOS | Linux |
+|---|---|---|---|
+| VST3 | `C:\Program Files\Common Files\VST3` | `~/Library/Audio/Plug-Ins/VST3` | `~/.vst3` |
+| CLAP | `C:\Program Files\Common Files\CLAP` | `~/Library/Audio/Plug-Ins/CLAP` | `~/.clap` |
+| LV2 | `%APPDATA%\LV2` | `~/Library/Audio/Plug-Ins/LV2` | `~/.lv2` |
+| AU | — | `~/Library/Audio/Plug-Ins/Components` | — |
+
+The builds are not code-signed. On macOS, remove the quarantine flag after copying, e.g.
+`xattr -dr com.apple.quarantine ~/Library/Audio/Plug-Ins/VST3/"Tabify Drums.vst3"`.
+On Windows, SmartScreen may warn about the Standalone app: *More info → Run anyway*.
+
+## Default notes (GM)
+
+| Note | Articulation | Note | Articulation |
+|---|---|---|---|
+| 35, 36 | Kick | 48, 50 | Tom 1 |
+| 38 | Snare | 45, 47 | Tom 2 |
+| 40 | Rimshot | 41, 43 | Floor Tom |
+| 37 | Side Stick | 49, 57 | Crash |
+| 42 | Hi-Hat Closed | 51 | Ride |
+| 23 | Hi-Hat Semi-Open | 53 | Ride Bell |
+| 46 | Hi-Hat Open | 59 | Ride 24" |
+| 44 | Hi-Hat Pedal | 55 | Splash |
+| 39 | Hand Clap | 56 | Cowbell |
+
+## Build from source
 
 ```bash
-git clone --recursive <repo> && cd drumkit
+git clone --recursive https://github.com/destshotGuitar/tabify-drums.git
+cd tabify-drums
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 cmake --build build --target TabifyDrums_All TabifyDrums_CLAP
 ```
 
-Результат — в `build/TabifyDrums_artefacts/Release/{VST3,CLAP,LV2,Standalone}`.
+Plugins end up in `build/TabifyDrums_artefacts/Release/`. On Linux,
+`scripts/install.sh` builds and installs VST3, CLAP and LV2 for the current user.
 
-Зависимости на Fedora:
+Linux dependencies (Fedora names; Debian/Ubuntu equivalents are in
+`.github/workflows/build.yml`):
 
 ```bash
 sudo dnf install cmake ninja-build gcc-c++ alsa-lib-devel pipewire-jack-audio-connection-kit-devel \
   freetype-devel fontconfig-devel libX11-devel libXrandr-devel libXinerama-devel libXcursor-devel
 ```
 
-Без `alsa-lib-devel` плагины собираются, но у Standalone не будет звука.
-
-Windows и macOS собираются в GitHub Actions (`.github/workflows/build.yml`) — артефакты
-на каждой сборке.
-
-## Как менять самому
-
-После любых изменений: `scripts/install.sh` — пересоберёт и установит плагин,
-затем в DAW переоткрой плагин (или пересканируй плагины).
-
-### Сэмплы
-
-Сэмплы — в `resources/kits/<кит>/`. У каждой артикуляции 5 файлов, от тихого
-удара к сильному: `-Softest`, `-Soft`, `-Med`, `-Hard`, `-Hardest`. Например, бочка
-GM Rock: `GMRockKit/Kick-Softest.wav` … `Kick-Hardest.wav`; у Muldjord к имени
-добавлен префикс: `MuldjordKit/Muldjord-Kick-Softest.flac`. Чтобы заменить звук —
-положи свои WAV или FLAC с теми же именами (любая частота дискретизации; стерео
-сводится в моно). Новый кит добавляется строкой в `kits` в `src/KitDefinition.h`.
-Если сэмпл один — скопируй его во все 5 файлов.
-
-Кит из DrumGizmo (drumgizmo.org, многомикрофонные записи) превращается в 5 слоёв
-скриптом `tools/import_drumgizmo.py` (сводит микрофоны в моно и выбирает удары):
-
-```bash
-tools/import_drumgizmo.py MuldjordKit3/KdrumL/KdrumL.xml \
-    --mix KdrumL=1.0,OHL=0.3,OHR=0.3,AmbL=0.2,AmbR=0.2 \
-    --prefix Muldjord-Kick --out resources/kits/MuldjordKit --format flac
-```
-
-Весь Muldjord Kit пересобирается из архива DrumGizmo командой
-`scripts/import_muldjord.sh <папка MuldjordKit3>` — там же видно, какие
-микрофоны и в каких пропорциях сведены.
-
-Какие файлы к какому барабану и какие ноты по умолчанию — в таблице
-`src/KitDefinition.h` (`articulations`).
-
-### Интерфейс
-
-| Что | Где |
-|---|---|
-| Фото установки | `resources/ui/kit.jpg` (1920×1088) |
-| Логотип | `resources/ui/logo.png` (PNG с прозрачностью) |
-| Зоны клика на фото | `src/gui/DrumKitView.cpp`, константы `tom1Head`, `rideOval`… в пикселях фото |
-| Цвета | `src/gui/DrumLookAndFeel.h`, `palette` |
-| Шапка, вкладки, нижняя панель | `src/PluginEditor.cpp` (`Surface::paint`, `showPage`) |
-| Название плагина | `CMakeLists.txt`, `PRODUCT_NAME` |
-
-Если заменишь фото на другое — нужно поправить зоны (центр и радиусы овалов).
-
-## Проверка
+### Tests
 
 ```bash
 cmake --build build --target TabifyDrumsTestHost TabifyDrumsSnapshot
-build/TabifyDrumsTestHost_artefacts/Release/TabifyDrumsTestHost build/TabifyDrums_artefacts/Release/VST3/"Tabify Drums.vst3" out
+build/TabifyDrumsTestHost_artefacts/Release/TabifyDrumsTestHost "build/TabifyDrums_artefacts/Release/VST3/Tabify Drums.vst3" out
 build/TabifyDrumsSnapshot out
 ```
 
-`TabifyDrumsTestHost` грузит VST3 как DAW, проверяет каждую артикуляцию, слои, сохранение
-состояния и пишет `out/beat.wav`. `TabifyDrumsSnapshot` сохраняет скриншоты интерфейса.
+`TabifyDrumsTestHost` loads the VST3 like a DAW and checks every articulation,
+velocity layers, kit switching and state restore, and renders `out/beat.wav`.
+`TabifyDrumsSnapshot` saves screenshots of the editor.
 
-## Планы
+### Customising
 
-- Библиотека грувов и сбивок (Groove MIDI Dataset, CC-BY 4.0), синхронно с темпом DAW,
-  перетаскивание MIDI в дорожку.
-- Генератор сбивок.
-- Раздельные выходы по каналам, EQ и ревербератор.
-- Пресеты, режим электронных барабанов (CC4 для хэта, choke тарелок по aftertouch).
-- Загрузка других китов (Hydrogen `.h2drumkit`, DrumGizmo).
-- Перевод интерфейса.
+- **Samples** live in `resources/kits/<kit>/`, five files per articulation from
+  `-Softest` to `-Hardest`. Kits are listed in `src/KitDefinition.h`.
+- **DrumGizmo kits** can be converted with `tools/import_drumgizmo.py`;
+  `scripts/import_muldjord.sh` rebuilds the Muldjord Kit from the DrumGizmo archive.
+- **UI**: kit photo `resources/ui/kit.jpg`, logo `resources/ui/logo.png`, colours in
+  `src/gui/DrumLookAndFeel.h`, click zones in `src/gui/DrumKitView.cpp`.
 
-## Лицензия
+## Roadmap
 
-Код — AGPLv3 (требование открытой лицензии JUCE). Сэмплы — CC BY 4.0 (Muldjord Kit)
-и GPL (GM Rock Kit), подробно в `resources/kits/CREDITS.md`. Фото установки
-(`resources/ui/kit.jpg`) — права нужно подтвердить перед публикацией.
+Groove library and fill generator synced to the host tempo, per-channel outputs,
+EQ and reverb, presets, e-drum mode, loading external kits, UI translations.
+
+## License
+
+The source code is licensed under the [GNU AGPLv3](LICENSE), as required by JUCE's
+open-source licence.
+
+Samples: Muldjord Kit — CC BY 4.0 (DrumGizmo.org), GM Rock Kit — GPL (Glen MacArthur /
+Sebastian Moors); see [`resources/kits/CREDITS.md`](resources/kits/CREDITS.md).
+The kit photo and the Tabify logo in `resources/ui/` are not covered by the AGPL and
+belong to their respective owners.
+
+Third-party code: [JUCE](https://juce.com) (AGPLv3),
+[VST3 SDK](https://github.com/steinbergmedia/vst3sdk) (MIT),
+[CLAP](https://github.com/free-audio/clap) and
+[clap-juce-extensions](https://github.com/free-audio/clap-juce-extensions) (MIT).

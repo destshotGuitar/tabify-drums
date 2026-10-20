@@ -2,8 +2,13 @@ name: Build
 
 on:
   push:
+    branches: [main]
+    tags: ['v*']
   pull_request:
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -12,11 +17,14 @@ jobs:
       matrix:
         include:
           - name: Linux
-            os: ubuntu-24.04
+            os: ubuntu-22.04
+            platform: linux-x64
           - name: Windows
             os: windows-2022
+            platform: windows-x64
           - name: macOS
             os: macos-14
+            platform: macos-universal
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
 
@@ -34,19 +42,62 @@ jobs:
             libxext-dev libxinerama-dev libxrandr-dev libxrender-dev libgl1-mesa-dev
 
       - name: Configure
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DTABIFY_BUILD_TESTHOST=OFF
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "Linux" ]; then generator="-G Ninja"; fi
+          cmake -S . -B build $generator -DCMAKE_BUILD_TYPE=Release -DTABIFY_BUILD_TESTHOST=OFF
 
       - name: Build
         run: cmake --build build --config Release --parallel 4 --target TabifyDrums_All TabifyDrums_CLAP
 
-      - name: Collect artefacts
+      - name: Package
         shell: bash
         run: |
-          mkdir -p dist
-          cp -R build/TabifyDrums_artefacts/Release/* dist/
-          rm -f dist/*.a dist/*.lib
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then version="${GITHUB_REF_NAME#v}"; else version="dev-${GITHUB_SHA::7}"; fi
+          name="TabifyDrums-$version-${{ matrix.platform }}"
+          src="build/TabifyDrums_artefacts/Release"
+
+          mkdir -p "dist/$name"
+          for format in VST3 CLAP LV2 AU Standalone; do
+            if [ -d "$src/$format" ]; then cp -R "$src/$format" "dist/$name/"; fi
+          done
+          cp LICENSE README.md README.ru.md resources/kits/CREDITS.md "dist/$name/"
+
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            # Unsigned builds still need a valid ad-hoc signature to load on Apple Silicon.
+            find "dist/$name" -mindepth 2 -maxdepth 2 \( -name "*.vst3" -o -name "*.clap" -o -name "*.component" \
+              -o -name "*.lv2" -o -name "*.app" \) -exec codesign --force --deep --sign - {} \;
+          fi
+
+          cd dist
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            7z a -tzip "$name.zip" "$name" > /dev/null
+          else
+            zip -qry "$name.zip" "$name"
+          fi
+          echo "ARCHIVE=dist/$name.zip" >> "$GITHUB_ENV"
+          echo "ARCHIVE_NAME=$name" >> "$GITHUB_ENV"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: TabifyDrums-${{ matrix.name }}
+          name: ${{ env.ARCHIVE_NAME }}
+          path: ${{ env.ARCHIVE }}
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
           path: dist
+          merge-multiple: true
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/*.zip \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "Tabify Drums ${GITHUB_REF_NAME#v}" \
+            --notes "Download the archive for your platform, unzip it and copy the plugin format you use into your plugin folder (paths are in the README). Builds are not code-signed: on macOS remove the quarantine flag with xattr -dr com.apple.quarantine <plugin>."
