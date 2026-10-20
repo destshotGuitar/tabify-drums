@@ -15,9 +15,10 @@ public:
 
 private:
     static constexpr int designWidth = 1000;
-    static constexpr int designHeight = 640;
     static constexpr int headerHeight = 50;
     static constexpr int infoHeight = 60;
+    static constexpr int kitHeight = designWidth * DrumKitView::imageHeight / DrumKitView::imageWidth;
+    static constexpr int designHeight = headerHeight + kitHeight + infoHeight;
 
     // Everything is laid out at the design size inside this component, which
     // is then scaled as a whole when the editor window is resized.

@@ -1,219 +1,71 @@
 #include "DrumKitView.h"
 #include "DrumLookAndFeel.h"
 
+#include <UiData.h>
+
 namespace
 {
-struct DrumGeo
+// Positions in photo pixels (resources/ui/kit.jpg, 1920 x 1088).
+struct Oval
 {
-    float cx, top, w, headH, shellH;
+    float cx, cy, rx, ry;
+
+    juce::Rectangle<float> bounds() const { return { cx - rx, cy - ry, rx * 2.0f, ry * 2.0f }; }
+    juce::Point<float> centre() const { return { cx, cy }; }
+
+    juce::Path path (float scale = 1.0f) const
+    {
+        juce::Path p;
+        p.addEllipse (bounds().withSizeKeepingCentre (rx * 2.0f * scale, ry * 2.0f * scale));
+        return p;
+    }
 };
 
-struct CymbalGeo
+constexpr Oval tom1Head { 1127.0f, 357.0f, 122.0f, 110.0f };
+constexpr Oval tom2Head { 790.0f, 340.0f, 123.0f, 112.0f };
+constexpr Oval floorTomHead { 582.0f, 562.0f, 124.0f, 107.0f };
+constexpr Oval snareHead { 1327.0f, 560.0f, 112.0f, 113.0f };
+constexpr Oval kickHead { 956.0f, 787.0f, 172.0f, 62.0f };
+
+constexpr Oval rideOval { 460.0f, 425.0f, 183.0f, 153.0f };
+constexpr Oval rideBellOval { 452.0f, 400.0f, 40.0f, 34.0f };
+constexpr Oval crashOval { 1390.0f, 250.0f, 188.0f, 170.0f };
+constexpr Oval hatOval { 1486.0f, 527.0f, 134.0f, 121.0f };
+
+const juce::Rectangle<float> kickShell { 800.0f, 430.0f, 330.0f, 330.0f };
+const juce::Rectangle<float> kickGlowArea { 800.0f, 470.0f, 330.0f, 290.0f };
+
+const Oval& headFor (int piece)
 {
-    float cx, cy, w, h, tilt;
-};
-
-constexpr float floorY = 455.0f;
-
-constexpr DrumGeo tom1Geo { 435.0f, 190.0f, 115.0f, 38.0f, 72.0f };
-constexpr DrumGeo tom2Geo { 568.0f, 196.0f, 125.0f, 40.0f, 78.0f };
-constexpr DrumGeo floorTomGeo { 782.0f, 300.0f, 160.0f, 50.0f, 118.0f };
-constexpr DrumGeo snareGeo { 262.0f, 322.0f, 150.0f, 44.0f, 46.0f };
-
-constexpr CymbalGeo crashGeo { 290.0f, 118.0f, 230.0f, 40.0f, -0.12f };
-constexpr CymbalGeo rideGeo { 785.0f, 138.0f, 262.0f, 44.0f, 0.10f };
-constexpr CymbalGeo splashGeo { 500.0f, 88.0f, 132.0f, 22.0f, 0.05f };
-constexpr CymbalGeo hatGeo { 110.0f, 262.0f, 160.0f, 24.0f, 0.0f };
-
-constexpr juce::Point<float> kickCentre { 500.0f, 338.0f };
-constexpr float kickRadius = 110.0f;
-constexpr juce::Point<float> cowbellCentre { 500.0f, 150.0f };
-
-const juce::Colour shellWrap { 0xff8e1b22 };
-const juce::Colour snareShell { 0xffaab1ba };
+    switch (piece)
+    {
+        case kit::tom1:     return tom1Head;
+        case kit::tom2:     return tom2Head;
+        case kit::floorTom: return floorTomHead;
+        case kit::snare:    return snareHead;
+        case kit::crash:    return crashOval;
+        case kit::ride:     return rideOval;
+        case kit::hihat:    return hatOval;
+        default:            return kickHead;
+    }
+}
 
 bool isCymbal (int piece)
 {
     return piece == kit::crash || piece == kit::ride || piece == kit::splash || piece == kit::hihat;
 }
 
-juce::Path ellipsePath (float cx, float cy, float w, float h, float angle = 0.0f)
+juce::Path rectPath (juce::Rectangle<float> r)
 {
     juce::Path p;
-    p.addEllipse (cx - w * 0.5f, cy - h * 0.5f, w, h);
-    p.applyTransform (juce::AffineTransform::rotation (angle, cx, cy));
+    p.addRectangle (r);
     return p;
-}
-
-juce::Path rectPath (float x, float y, float w, float h)
-{
-    juce::Path p;
-    p.addRectangle (x, y, w, h);
-    return p;
-}
-
-void chromeLine (juce::Graphics& g, juce::Point<float> a, juce::Point<float> b, float thickness)
-{
-    g.setColour (juce::Colour (0xff4b5058));
-    g.drawLine ({ a, b }, thickness + 1.5f);
-    g.setColour (juce::Colour (0xffb9bfc6));
-    g.drawLine ({ a, b }, thickness);
-    g.setColour (juce::Colours::white.withAlpha (0.45f));
-    g.drawLine ({ a.translated (-thickness * 0.2f, 0.0f), b.translated (-thickness * 0.2f, 0.0f) }, thickness * 0.3f);
-}
-
-void tripod (juce::Graphics& g, float x, float top)
-{
-    chromeLine (g, { x, top }, { x, floorY - 30.0f }, 3.5f);
-    const juce::Point<float> joint { x, floorY - 34.0f };
-    chromeLine (g, joint, { x - 36.0f, floorY }, 2.5f);
-    chromeLine (g, joint, { x + 36.0f, floorY }, 2.5f);
-    chromeLine (g, joint, { x + 8.0f, floorY + 4.0f }, 2.5f);
-
-    g.setColour (juce::Colour (0xff141414));
-    g.fillEllipse (x - 40.0f, floorY - 2.0f, 8.0f, 4.0f);
-    g.fillEllipse (x + 32.0f, floorY - 2.0f, 8.0f, 4.0f);
-    g.fillEllipse (x + 4.0f, floorY + 2.0f, 8.0f, 4.0f);
-}
-
-void drawCymbal (juce::Graphics& g, float cx, float cy, float w, float h, float angle, float energy, bool flipped)
-{
-    juce::Graphics::ScopedSaveState state (g);
-    g.addTransform (juce::AffineTransform::rotation (angle, cx, cy));
-
-    const juce::Rectangle<float> r (cx - w * 0.5f, cy - h * 0.5f, w, h);
-
-    // Edge thickness
-    g.setColour (juce::Colour (0xff5a3a10));
-    g.fillEllipse (r.translated (0.0f, flipped ? -2.0f : 2.0f));
-
-    juce::ColourGradient body (juce::Colour (0xfff3d27a), cx - w * 0.18f, cy - h * 0.25f,
-                               juce::Colour (0xff8f6020), cx + w * 0.5f, cy + h * 0.5f, true);
-    body.addColour (0.45, juce::Colour (0xffd6a443));
-    g.setGradientFill (body);
-    g.fillEllipse (r);
-
-    // Lathing grooves
-    for (int i = 1; i < 8; ++i)
-    {
-        const auto ring = r.reduced (w * 0.5f * (float) i / 9.0f, h * 0.5f * (float) i / 9.0f);
-        g.setColour (juce::Colours::black.withAlpha (0.08f));
-        g.drawEllipse (ring, 0.8f);
-        g.setColour (juce::Colours::white.withAlpha (0.07f));
-        g.drawEllipse (ring.translated (0.0f, -0.7f), 0.6f);
-    }
-
-    const auto bell = juce::Rectangle<float> (w * 0.2f, h * 0.8f)
-                          .withCentre ({ cx, cy + (flipped ? h * 0.14f : -h * 0.14f) });
-    g.setGradientFill (juce::ColourGradient (juce::Colour (0xfffbe39a), bell.getX() + bell.getWidth() * 0.3f, bell.getY(),
-                                             juce::Colour (0xffa07024), bell.getRight(), bell.getBottom(), false));
-    g.fillEllipse (bell);
-
-    if (! flipped)
-    {
-        g.setColour (juce::Colour (0xff2b2b2b));
-        g.fillEllipse (juce::Rectangle<float> (6.0f, 3.5f).withCentre (bell.getCentre().translated (0.0f, -bell.getHeight() * 0.15f)));
-    }
-
-    g.setColour (juce::Colour (0xff6b4712));
-    g.drawEllipse (r, 1.0f);
-
-    if (energy > 0.005f)
-    {
-        juce::ColourGradient flash (juce::Colours::white.withAlpha (0.8f * energy), cx, cy,
-                                    juce::Colours::white.withAlpha (0.0f), cx + w * 0.55f, cy, true);
-        g.setGradientFill (flash);
-        g.fillEllipse (r.expanded (w * 0.03f * energy, h * 0.12f * energy));
-    }
-}
-
-// A drum seen from the front and slightly above: shell, lugs, hoops and head.
-void drawDrumBody (juce::Graphics& g, const DrumGeo& d, juce::Colour wrap, int lugs,
-                   float energy, float ripple, float strength)
-{
-    const auto left = d.cx - d.w * 0.5f;
-    const auto right = d.cx + d.w * 0.5f;
-    const auto bottom = d.top + d.shellH;
-    const auto halfPi = juce::MathConstants<float>::halfPi;
-
-    juce::Path shell;
-    shell.startNewSubPath (left, d.top);
-    shell.lineTo (left, bottom);
-    shell.addCentredArc (d.cx, bottom, d.w * 0.5f, d.headH * 0.5f, 0.0f, 3.0f * halfPi, halfPi);
-    shell.lineTo (right, d.top);
-    shell.closeSubPath();
-
-    juce::ColourGradient wrapGradient (wrap.darker (0.9f), left, 0.0f, wrap.darker (1.2f), right, 0.0f, false);
-    wrapGradient.addColour (0.28, wrap.brighter (0.45f));
-    wrapGradient.addColour (0.55, wrap);
-    g.setGradientFill (wrapGradient);
-    g.fillPath (shell);
-
-    {
-        juce::Graphics::ScopedSaveState state (g);
-        g.reduceClipRegion (shell);
-        g.setColour (juce::Colours::white.withAlpha (0.13f));
-        g.fillRect (left + d.w * 0.22f, d.top, d.w * 0.05f, d.shellH + d.headH);
-    }
-
-    // Lugs, spaced around the visible half of the shell
-    for (int i = 0; i < lugs; ++i)
-    {
-        const auto theta = juce::MathConstants<float>::pi * ((float) i + 0.5f) / (float) lugs;
-        const auto x = d.cx - std::cos (theta) * d.w * 0.48f;
-        const auto lugW = 2.0f + 6.0f * std::sin (theta);
-        const auto lugH = juce::jmin (d.shellH * 0.45f, 26.0f);
-        const auto lugY = d.top + d.shellH * 0.5f - lugH * 0.5f + std::sin (theta) * d.headH * 0.25f;
-
-        g.setGradientFill (juce::ColourGradient (juce::Colour (0xfff0f2f5), x - lugW * 0.5f, 0.0f,
-                                                 juce::Colour (0xff6c727a), x + lugW * 0.5f, 0.0f, false));
-        g.fillRoundedRectangle (x - lugW * 0.5f, lugY, lugW, lugH, 2.0f);
-
-        g.setColour (juce::Colour (0xff9aa1a9));
-        g.drawLine (x, d.top + std::sin (theta) * d.headH * 0.5f, x, lugY, 1.0f);
-    }
-
-    juce::Path bottomHoop;
-    bottomHoop.addCentredArc (d.cx, bottom, d.w * 0.5f, d.headH * 0.5f, 0.0f, 3.0f * halfPi, halfPi, true);
-    g.setColour (juce::Colour (0xffc4cad1));
-    g.strokePath (bottomHoop, juce::PathStrokeType (3.0f));
-
-    const juce::Rectangle<float> hoop (left - 2.0f, d.top - d.headH * 0.5f - 1.5f, d.w + 4.0f, d.headH + 3.0f);
-    g.setColour (juce::Colour (0xff80868e));
-    g.fillEllipse (hoop);
-
-    const auto head = hoop.reduced (3.5f, 2.5f);
-    auto headLight = juce::Colour (0xfff7f4ec).interpolatedWith (juce::Colours::white, energy);
-    auto headDark = juce::Colour (0xffb8b0a0).interpolatedWith (juce::Colour (0xffeae4d6), energy);
-    g.setGradientFill (juce::ColourGradient (headLight, head.getX() + head.getWidth() * 0.3f, head.getY(),
-                                             headDark, head.getRight(), head.getBottom(), false));
-    g.fillEllipse (head);
-
-    if (ripple < 1.0f)
-    {
-        const auto scale = 0.15f + 0.85f * ripple;
-        g.setColour (palette::accent.withAlpha ((1.0f - ripple) * (0.3f + 0.6f * strength)));
-        g.drawEllipse (head.withSizeKeepingCentre (head.getWidth() * scale, head.getHeight() * scale), 2.0f);
-    }
-
-    juce::Path frontHoop;
-    frontHoop.addCentredArc (hoop.getCentreX(), hoop.getCentreY(), hoop.getWidth() * 0.5f, hoop.getHeight() * 0.5f,
-                             0.0f, 3.0f * halfPi, halfPi, true);
-    g.setColour (juce::Colour (0xffe3e7eb));
-    g.strokePath (frontHoop, juce::PathStrokeType (2.5f));
-
-    if (energy > 0.005f)
-    {
-        g.setGradientFill (juce::ColourGradient (palette::accent.withAlpha (0.35f * energy), head.getCentreX(), head.getCentreY(),
-                                                 palette::accent.withAlpha (0.0f), head.getRight(), head.getCentreY(), true));
-        g.fillEllipse (head.expanded (6.0f * energy));
-    }
 }
 } // namespace
 
 DrumKitView::DrumKitView()
 {
-    setSize (designWidth, designHeight);
+    photo = juce::ImageCache::getFromMemory (UiData::kit_jpg, UiData::kit_jpgSize);
     buildZones();
     startTimerHz (60);
 }
@@ -222,40 +74,56 @@ void DrumKitView::buildZones()
 {
     const juce::String more = juce::CharPointer_UTF8 ("  \xc2\xb7  right-click: MIDI learn & more");
 
-    const auto hatHelp = "Hi-Hat: center = closed, edge = open, Shift-click = semi-open, pedal = foot chick" + more;
-    zones.push_back ({ kit::hatPedal, rectPath (82.0f, 416.0f, 56.0f, 44.0f), "Hi-Hat pedal" + more });
-    zones.push_back ({ kit::hatClosed, ellipsePath (hatGeo.cx, hatGeo.cy - 6.0f, 96.0f, 30.0f), hatHelp });
-    zones.push_back ({ kit::hatOpen, ellipsePath (hatGeo.cx, hatGeo.cy - 6.0f, hatGeo.w + 14.0f, 52.0f), hatHelp });
+    const auto hatHelp = "Hi-Hat: center = closed, edge = open, Shift-click = semi-open" + more;
+    zones.push_back ({ kit::hatClosed, hatOval.path (0.6f), hatOval.path (0.6f), hatHelp });
+    zones.push_back ({ kit::hatOpen, hatOval.path(), hatOval.path(), hatHelp });
+
+    zones.push_back ({ kit::crashHit, crashOval.path(), crashOval.path(), "Crash" + more });
+
+    const auto rideHelp = "Ride: bow = ride, center = bell" + more;
+    zones.push_back ({ kit::rideBell, rideBellOval.path(), rideBellOval.path(), rideHelp });
+    zones.push_back ({ kit::rideHit, rideOval.path(), rideOval.path(), rideHelp });
+
+    // Pieces that are not in the photo get pads on the floor.
+    const std::array<std::pair<int, const char*>, 3> padList {{
+        { kit::splashHit, "SPLASH" }, { kit::cowbellHit, "COWBELL" }, { kit::clapHit, "CLAP" } }};
+    for (size_t i = 0; i < padList.size(); ++i)
+    {
+        Pad pad;
+        pad.articulation = padList[i].first;
+        pad.label = padList[i].second;
+        pad.bounds = { 70.0f, 730.0f + 92.0f * (float) i, 200.0f, 76.0f };
+        pads.push_back (pad);
+        juce::Path padShape;
+        padShape.addRoundedRectangle (pad.bounds, 12.0f);
+        zones.push_back ({ pad.articulation, padShape, padShape,
+                           juce::String (kit::articulations[(size_t) pad.articulation].name) + more });
+    }
 
     const auto snareHelp = "Snare: center = snare, rim = rimshot, shell = side stick" + more;
-    zones.push_back ({ kit::snareHit, ellipsePath (snareGeo.cx, snareGeo.top, snareGeo.w * 0.72f, snareGeo.headH * 0.72f), snareHelp });
-    zones.push_back ({ kit::snareRimshot, ellipsePath (snareGeo.cx, snareGeo.top, snareGeo.w + 8.0f, snareGeo.headH + 8.0f), snareHelp });
-    zones.push_back ({ kit::snareSideStick, rectPath (snareGeo.cx - snareGeo.w * 0.5f, snareGeo.top,
-                                                      snareGeo.w, snareGeo.shellH + snareGeo.headH * 0.5f), snareHelp });
+    zones.push_back ({ kit::snareHit, snareHead.path (0.72f), snareHead.path (0.72f), snareHelp });
+    zones.push_back ({ kit::snareRimshot, snareHead.path (1.05f), snareHead.path(), snareHelp });
+    zones.push_back ({ kit::snareSideStick, rectPath ({ 1215.0f, 560.0f, 226.0f, 175.0f }), snareHead.path (1.08f), snareHelp });
 
-    auto drumZone = [] (const DrumGeo& d)
+    auto drumZone = [] (const Oval& head, float shellBottom)
     {
-        auto p = ellipsePath (d.cx, d.top, d.w + 6.0f, d.headH + 6.0f);
-        p.addRectangle (d.cx - d.w * 0.5f, d.top, d.w, d.shellH);
+        auto p = head.path (1.04f);
+        p.addRectangle (head.cx - head.rx, head.cy, head.rx * 2.0f, shellBottom - head.cy);
         return p;
     };
 
-    zones.push_back ({ kit::floorTomHit, drumZone (floorTomGeo), "Floor Tom" + more });
-    zones.push_back ({ kit::kickHit, ellipsePath (kickCentre.x, kickCentre.y, kickRadius * 2.0f + 24.0f, kickRadius * 2.0f + 24.0f), "Kick" + more });
-    zones.push_back ({ kit::cowbellHit, rectPath (cowbellCentre.x - 20.0f, cowbellCentre.y - 16.0f, 40.0f, 34.0f), "Cowbell (Hand Clap via right-click)" + more });
-    zones.push_back ({ kit::tom1Hit, drumZone (tom1Geo), "Tom 1" + more });
-    zones.push_back ({ kit::tom2Hit, drumZone (tom2Geo), "Tom 2" + more });
+    zones.push_back ({ kit::tom1Hit, drumZone (tom1Head, 540.0f), tom1Head.path(), "Tom 1" + more });
+    zones.push_back ({ kit::tom2Hit, drumZone (tom2Head, 525.0f), tom2Head.path(), "Tom 2" + more });
+    zones.push_back ({ kit::floorTomHit, drumZone (floorTomHead, 735.0f), floorTomHead.path(), "Floor Tom" + more });
 
-    auto cymbalZone = [] (const CymbalGeo& c, float widthScale = 1.0f, float heightScale = 2.0f)
-    {
-        return ellipsePath (c.cx, c.cy, c.w * widthScale, c.h * heightScale, c.tilt);
-    };
+    auto kickArea = kickHead.path (1.05f);
+    kickArea.addRectangle (kickShell);
+    zones.push_back ({ kit::kickHit, kickArea, kickHead.path(), "Kick" + more });
+}
 
-    zones.push_back ({ kit::splashHit, cymbalZone (splashGeo), "Splash" + more });
-    zones.push_back ({ kit::rideBell, ellipsePath (rideGeo.cx, rideGeo.cy - rideGeo.h * 0.12f, rideGeo.w * 0.24f, rideGeo.h * 1.1f, rideGeo.tilt),
-                       "Ride: bow = ride, center = bell" + more });
-    zones.push_back ({ kit::rideHit, cymbalZone (rideGeo), "Ride: bow = ride, center = bell" + more });
-    zones.push_back ({ kit::crashHit, cymbalZone (crashGeo), "Crash" + more });
+juce::Point<float> DrumKitView::toImage (juce::Point<float> p) const
+{
+    return p * ((float) imageWidth / (float) juce::jmax (1, getWidth()));
 }
 
 const DrumKitView::Zone* DrumKitView::zoneAt (juce::Point<float> p) const
@@ -275,7 +143,7 @@ int DrumKitView::articulationFor (const Zone& zone, const juce::ModifierKeys& mo
 
 void DrumKitView::mouseDown (const juce::MouseEvent& e)
 {
-    const auto* zone = zoneAt (e.position);
+    const auto* zone = zoneAt (toImage (e.position));
     if (zone == nullptr)
         return;
 
@@ -292,7 +160,7 @@ void DrumKitView::mouseDown (const juce::MouseEvent& e)
 
 void DrumKitView::mouseMove (const juce::MouseEvent& e)
 {
-    const auto* zone = zoneAt (e.position);
+    const auto* zone = zoneAt (toImage (e.position));
     if (zone == hovered)
         return;
 
@@ -325,12 +193,16 @@ void DrumKitView::notifyHit (int articulation, int velocity)
     a.wobble = juce::jmax (a.wobble * 0.5f, v);
     a.phase = 0.0f;
 
+    for (auto& pad : pads)
+        if (pad.articulation == articulation)
+            pad.energy = 0.4f + 0.6f * v;
+
     switch (articulation)
     {
-        case kit::hatClosed: hatOpenTarget = 0.0f; a.wobble *= 0.3f; break;
-        case kit::hatPedal:  hatOpenTarget = 0.0f; hatBounce = 1.0f; a.wobble = 0.0f; break;
+        case kit::hatClosed:   hatOpenTarget = 0.0f; a.wobble *= 0.3f; break;
+        case kit::hatPedal:    hatOpenTarget = 0.0f; hatBounce = 1.0f; a.wobble = 0.0f; break;
         case kit::hatSemiOpen: hatOpenTarget = 0.45f; break;
-        case kit::hatOpen:   hatOpenTarget = 1.0f; break;
+        case kit::hatOpen:     hatOpenTarget = 1.0f; break;
         default: break;
     }
 
@@ -354,14 +226,20 @@ void DrumKitView::timerCallback()
     for (size_t p = 0; p < anims.size(); ++p)
     {
         auto& a = anims[p];
-        a.energy *= isCymbal ((int) p) ? 0.93f : 0.86f;
+        a.energy *= isCymbal ((int) p) ? 0.93f : 0.88f;
         a.ripple = juce::jmin (1.0f, a.ripple + dt * 2.5f);
         a.wobble *= 0.965f;
-        a.phase += dt * juce::MathConstants<float>::twoPi * 3.0f;
+        a.phase += dt * juce::MathConstants<float>::twoPi * 2.5f;
 
         if (a.energy < 0.002f) a.energy = 0.0f;
         if (a.wobble < 0.002f) a.wobble = 0.0f;
         active = active || a.energy > 0.0f || a.ripple < 1.0f || a.wobble > 0.0f;
+    }
+
+    for (auto& pad : pads)
+    {
+        pad.energy = pad.energy < 0.002f ? 0.0f : pad.energy * 0.88f;
+        active = active || pad.energy > 0.0f;
     }
 
     hatOpen += (hatOpenTarget - hatOpen) * 0.35f;
@@ -377,234 +255,129 @@ void DrumKitView::timerCallback()
 
 void DrumKitView::paint (juce::Graphics& g)
 {
-    drawBackground (g);
-    drawStands (g);
-    drawCymbalPiece (g, kit::ride);
-    drawCymbalPiece (g, kit::crash);
-    drawCymbalPiece (g, kit::splash);
-    drawCowbell (g);
-    drawTom (g, kit::tom1);
-    drawTom (g, kit::tom2);
-    drawKick (g);
-    drawFloorTom (g);
-    drawSnare (g);
-    drawHiHat (g);
+    g.addTransform (juce::AffineTransform::scale ((float) getWidth() / (float) imageWidth));
+    g.setImageResamplingQuality (juce::Graphics::highResamplingQuality);
+    g.drawImageAt (photo, 0, 0);
+
+    drawKickHit (g);
+    for (const auto piece : { kit::snare, kit::tom1, kit::tom2, kit::floorTom })
+        drawDrumHit (g, piece);
+
+    // Cymbals are redrawn from the photo on top of the drums, so drum glows
+    // stay underneath them and the cymbals can swing.
+    for (const auto piece : { kit::ride, kit::crash, kit::hihat })
+        drawCymbal (g, piece);
+
+    drawPads (g);
     drawHighlights (g);
 }
 
-void DrumKitView::drawBackground (juce::Graphics& g)
-{
-    const auto bounds = getLocalBounds().toFloat();
-
-    g.setGradientFill (juce::ColourGradient (juce::Colour (0xff3c4352), 500.0f, 40.0f,
-                                             juce::Colour (0xff101216), 500.0f, 600.0f, true));
-    g.fillRect (bounds);
-
-    // Floor rug
-    g.setGradientFill (juce::ColourGradient (juce::Colour (0xff4d2c25), 500.0f, 440.0f,
-                                             juce::Colour (0xff1a100e), 500.0f, 540.0f, true));
-    g.fillEllipse (20.0f, 398.0f, 960.0f, 118.0f);
-
-    // Spotlight cone
-    juce::Path cone;
-    cone.startNewSubPath (430.0f, 0.0f);
-    cone.lineTo (570.0f, 0.0f);
-    cone.lineTo (900.0f, 470.0f);
-    cone.lineTo (100.0f, 470.0f);
-    cone.closeSubPath();
-    g.setGradientFill (juce::ColourGradient (juce::Colours::white.withAlpha (0.06f), 500.0f, 0.0f,
-                                             juce::Colours::white.withAlpha (0.0f), 500.0f, 470.0f, false));
-    g.fillPath (cone);
-}
-
-void DrumKitView::drawStands (juce::Graphics& g)
-{
-    // Crash and ride on boom stands
-    chromeLine (g, { crashGeo.cx, crashGeo.cy }, { 325.0f, 212.0f }, 3.0f);
-    tripod (g, 325.0f, 212.0f);
-    chromeLine (g, { rideGeo.cx, rideGeo.cy }, { 735.0f, 218.0f }, 3.0f);
-    tripod (g, 735.0f, 218.0f);
-
-    // Splash and cowbell sit on a post rising from the kick
-    chromeLine (g, { kickCentre.x, kickCentre.y - kickRadius }, { splashGeo.cx, splashGeo.cy }, 3.0f);
-
-    // Tom arms
-    chromeLine (g, { kickCentre.x - 6.0f, kickCentre.y - kickRadius + 4.0f },
-                { tom1Geo.cx, tom1Geo.top + tom1Geo.shellH * 0.6f }, 4.0f);
-    chromeLine (g, { kickCentre.x + 6.0f, kickCentre.y - kickRadius + 4.0f },
-                { tom2Geo.cx, tom2Geo.top + tom2Geo.shellH * 0.6f }, 4.0f);
-}
-
-void DrumKitView::drawCymbalPiece (juce::Graphics& g, int piece)
-{
-    const auto& geo = piece == kit::crash ? crashGeo : piece == kit::ride ? rideGeo : splashGeo;
-    const auto& a = anims[(size_t) piece];
-    const auto swing = std::sin (a.phase) * a.wobble;
-    const auto bob = std::sin (a.phase + 1.2f) * a.wobble;
-
-    drawCymbal (g, geo.cx, geo.cy, geo.w, geo.h * (1.0f + 0.25f * bob),
-                geo.tilt + 0.07f * swing, a.energy, false);
-}
-
-void DrumKitView::drawTom (juce::Graphics& g, int piece)
+void DrumKitView::drawDrumHit (juce::Graphics& g, int piece)
 {
     const auto& a = anims[(size_t) piece];
-    drawDrumBody (g, piece == kit::tom1 ? tom1Geo : tom2Geo, shellWrap, 6, a.energy, a.ripple, a.strength);
-}
+    if (a.energy <= 0.0f && a.ripple >= 1.0f)
+        return;
 
-void DrumKitView::drawFloorTom (juce::Graphics& g)
-{
-    const auto& d = floorTomGeo;
-    const auto left = d.cx - d.w * 0.5f;
-    const auto right = d.cx + d.w * 0.5f;
-    chromeLine (g, { left + 8.0f, d.top + d.shellH * 0.3f }, { left - 12.0f, floorY }, 3.0f);
-    chromeLine (g, { right - 8.0f, d.top + d.shellH * 0.3f }, { right + 12.0f, floorY }, 3.0f);
+    const auto& head = headFor (piece);
+    const auto r = head.bounds();
 
-    const auto& a = anims[kit::floorTom];
-    drawDrumBody (g, d, shellWrap, 8, a.energy, a.ripple, a.strength);
-}
-
-void DrumKitView::drawSnare (juce::Graphics& g)
-{
-    const auto& d = snareGeo;
-    const auto bottom = d.top + d.shellH + d.headH * 0.5f;
-    tripod (g, d.cx, bottom);
-    chromeLine (g, { d.cx, bottom }, { d.cx - d.w * 0.32f, bottom - 6.0f }, 2.5f);
-    chromeLine (g, { d.cx, bottom }, { d.cx + d.w * 0.32f, bottom - 6.0f }, 2.5f);
-
-    const auto& a = anims[kit::snare];
-    drawDrumBody (g, d, snareShell, 8, a.energy, a.ripple, a.strength);
-}
-
-void DrumKitView::drawKick (juce::Graphics& g)
-{
-    const auto c = kickCentre;
-    const auto r = kickRadius;
-    const auto& a = anims[kit::kick];
-
-    chromeLine (g, { c.x - r * 0.8f, c.y + r * 0.45f }, { c.x - r * 1.3f, floorY }, 3.0f);
-    chromeLine (g, { c.x + r * 0.8f, c.y + r * 0.45f }, { c.x + r * 1.3f, floorY }, 3.0f);
-
-    // Hoop with wrap finish
-    const auto outer = juce::Rectangle<float> ((r + 12.0f) * 2.0f, (r + 12.0f) * 2.0f).withCentre (c);
-    g.setGradientFill (juce::ColourGradient (shellWrap.brighter (0.5f), c.x, c.y - r,
-                                             shellWrap.darker (1.0f), c.x, c.y + r, false));
-    g.fillEllipse (outer);
-    g.setColour (juce::Colours::black.withAlpha (0.5f));
-    g.drawEllipse (outer, 1.0f);
-
-    // Claws
-    for (int i = 0; i < 10; ++i)
-    {
-        const auto angle = juce::MathConstants<float>::twoPi * (float) i / 10.0f + juce::MathConstants<float>::pi / 10.0f;
-        const auto p = c.getPointOnCircumference (r + 6.0f, angle);
-        juce::Path claw;
-        claw.addRoundedRectangle (p.x - 3.5f, p.y - 8.0f, 7.0f, 16.0f, 2.0f);
-        claw.applyTransform (juce::AffineTransform::rotation (angle, p.x, p.y));
-        g.setColour (juce::Colour (0xffd0d5db));
-        g.fillPath (claw);
-        g.setColour (juce::Colour (0xff5c6168));
-        g.strokePath (claw, juce::PathStrokeType (0.8f));
-    }
-
-    juce::Graphics::ScopedSaveState state (g);
-    const auto pulse = 1.0f + 0.025f * a.energy;
-    g.addTransform (juce::AffineTransform::scale (pulse, pulse, c.x, c.y));
-
-    const auto head = juce::Rectangle<float> (r * 2.0f, r * 2.0f).withCentre (c);
-    g.setGradientFill (juce::ColourGradient (juce::Colour (0xff30333a).interpolatedWith (juce::Colour (0xff4a4f58), a.energy),
-                                             c.x - r * 0.3f, c.y - r * 0.4f,
-                                             juce::Colour (0xff0b0c0f), c.x + r * 0.7f, c.y + r * 0.8f, true));
-    g.fillEllipse (head);
-    g.setColour (juce::Colours::white.withAlpha (0.08f));
-    g.drawEllipse (head.reduced (8.0f), 1.0f);
-
-    g.setColour (palette::accent.interpolatedWith (juce::Colours::white, a.energy * 0.5f));
-    g.setFont (juce::FontOptions (30.0f, juce::Font::bold));
-    g.drawText ("OPEN DRUMS", juce::Rectangle<float> (c.x - r, c.y - 26.0f, r * 2.0f, 34.0f), juce::Justification::centred);
-    g.setColour (palette::textDim);
-    g.setFont (juce::FontOptions (11.0f, juce::Font::bold));
-    g.drawText ("GM ROCK KIT", juce::Rectangle<float> (c.x - r, c.y + 8.0f, r * 2.0f, 16.0f), juce::Justification::centred);
-
-    // Port hole
-    const auto port = juce::Rectangle<float> (30.0f, 30.0f).withCentre ({ c.x + r * 0.45f, c.y + r * 0.5f });
-    g.setColour (juce::Colours::black);
-    g.fillEllipse (port);
-    g.setColour (juce::Colour (0xff8a9099));
-    g.drawEllipse (port, 2.0f);
+    g.setGradientFill (juce::ColourGradient (juce::Colours::white.withAlpha (0.5f * a.energy), head.cx, head.cy,
+                                             juce::Colours::white.withAlpha (0.0f), head.cx + head.rx, head.cy, true));
+    g.fillEllipse (r);
 
     if (a.ripple < 1.0f)
     {
-        const auto scale = 0.2f + 0.8f * a.ripple;
-        g.setColour (palette::accent.withAlpha ((1.0f - a.ripple) * (0.3f + 0.6f * a.strength)));
-        g.drawEllipse (head.withSizeKeepingCentre (head.getWidth() * scale, head.getHeight() * scale), 3.0f);
+        const auto scale = 0.15f + 0.85f * a.ripple;
+        g.setColour (palette::accent.withAlpha ((1.0f - a.ripple) * (0.35f + 0.6f * a.strength)));
+        g.drawEllipse (r.withSizeKeepingCentre (r.getWidth() * scale, r.getHeight() * scale), 5.0f);
     }
 
-    if (a.energy > 0.005f)
+    g.setColour (palette::accent.withAlpha (0.85f * a.energy));
+    g.drawEllipse (r.expanded (6.0f), 7.0f);
+}
+
+void DrumKitView::drawKickHit (juce::Graphics& g)
+{
+    const auto& a = anims[kit::kick];
+    if (a.energy <= 0.0f && a.ripple >= 1.0f)
+        return;
+
+    g.setGradientFill (juce::ColourGradient (palette::accent.withAlpha (0.0f), 0.0f, kickGlowArea.getY(),
+                                             palette::accent.withAlpha (0.28f * a.energy), 0.0f, kickGlowArea.getBottom(), false));
+    g.fillRect (kickGlowArea);
+
+    drawDrumHit (g, kit::kick);
+}
+
+void DrumKitView::drawCymbal (juce::Graphics& g, int piece)
+{
+    const auto& oval = headFor (piece);
+    const auto& a = anims[(size_t) piece];
+    const auto open = piece == kit::hihat ? hatOpen : 0.0f;
+
+    // Seen from above a swinging cymbal mostly changes its apparent size; keep
+    // the scale >= 1 so the redrawn cymbal always covers the original pixels.
+    const auto sx = 1.0f + 0.03f * a.wobble * (1.0f + std::cos (a.phase)) + 0.045f * open;
+    const auto sy = 1.0f + 0.03f * a.wobble * (1.0f + std::sin (a.phase)) + 0.045f * open;
+    const auto transform = juce::AffineTransform::scale (sx, sy, oval.cx, oval.cy);
+
+    auto outline = oval.path();
+    outline.applyTransform (transform);
+
+    if (open > 0.01f)
     {
-        g.setGradientFill (juce::ColourGradient (palette::accent.withAlpha (0.25f * a.energy), c.x, c.y,
-                                                 palette::accent.withAlpha (0.0f), c.x + r, c.y, true));
-        g.fillEllipse (head);
+        g.setColour (juce::Colours::black.withAlpha (0.35f * open));
+        g.fillPath (outline, juce::AffineTransform::translation (10.0f, 14.0f));
+    }
+
+    {
+        juce::Graphics::ScopedSaveState state (g);
+        g.reduceClipRegion (outline);
+        g.drawImageTransformed (photo, transform);
+
+        if (a.energy > 0.0f)
+        {
+            // A sheen sweeping across the cymbal plus an overall brightening.
+            const auto angle = a.phase * 0.5f;
+            const auto dir = juce::Point<float> (std::cos (angle), std::sin (angle)) * oval.rx;
+            juce::ColourGradient sheen (juce::Colours::white.withAlpha (0.0f), oval.centre() - dir,
+                                        juce::Colours::white.withAlpha (0.0f), oval.centre() + dir, false);
+            sheen.addColour (0.5, juce::Colours::white.withAlpha (0.45f * a.energy));
+            g.setGradientFill (sheen);
+            g.fillPath (outline);
+
+            g.setGradientFill (juce::ColourGradient (juce::Colour (0xfffff2c8).withAlpha (0.35f * a.energy), oval.cx, oval.cy,
+                                                     juce::Colour (0xfffff2c8).withAlpha (0.0f), oval.cx + oval.rx, oval.cy, true));
+            g.fillPath (outline);
+        }
+    }
+
+    if (a.energy > 0.0f)
+    {
+        g.setColour (palette::accent.withAlpha (0.8f * a.energy));
+        g.strokePath (outline, juce::PathStrokeType (6.0f));
     }
 }
 
-void DrumKitView::drawHiHat (juce::Graphics& g)
+void DrumKitView::drawPads (juce::Graphics& g)
 {
-    const auto& h = hatGeo;
-    const auto& a = anims[kit::hihat];
-    const auto bottomY = h.cy;
-    const auto topY = h.cy - 4.0f - hatOpen * 16.0f + hatBounce * 2.0f;
-
-    // Stand and pedal
-    tripod (g, h.cx, topY - 22.0f);
-    const auto press = hatBounce * 4.0f;
-    juce::Path pedal;
-    pedal.startNewSubPath (h.cx - 20.0f, floorY + 2.0f);
-    pedal.lineTo (h.cx + 20.0f, floorY + 2.0f);
-    pedal.lineTo (h.cx + 15.0f, floorY - 28.0f + press);
-    pedal.lineTo (h.cx - 15.0f, floorY - 28.0f + press);
-    pedal.closeSubPath();
-    g.setGradientFill (juce::ColourGradient (juce::Colour (0xff3b3f46), h.cx, floorY - 28.0f,
-                                             juce::Colour (0xff15171a), h.cx, floorY, false));
-    g.fillPath (pedal);
-    g.setColour (juce::Colour (0xff9aa1a9));
-    g.strokePath (pedal, juce::PathStrokeType (1.2f));
-
-    drawCymbal (g, h.cx, bottomY, h.w, h.h * 0.9f, 0.0f, a.energy * 0.4f, true);
-
-    const auto swing = std::sin (a.phase) * a.wobble * hatOpen;
-    drawCymbal (g, h.cx, topY, h.w, h.h, 0.05f * swing, a.energy, false);
-
-    // Clutch
-    g.setColour (juce::Colour (0xffc9ced4));
-    g.fillRoundedRectangle (h.cx - 5.0f, topY - 14.0f, 10.0f, 8.0f, 2.0f);
-}
-
-void DrumKitView::drawCowbell (juce::Graphics& g)
-{
-    const auto c = cowbellCentre;
-    const auto& a = anims[kit::perc];
-
-    juce::Path bell;
-    bell.startNewSubPath (c.x - 9.0f, c.y - 14.0f);
-    bell.lineTo (c.x + 9.0f, c.y - 14.0f);
-    bell.lineTo (c.x + 18.0f, c.y + 12.0f);
-    bell.lineTo (c.x - 18.0f, c.y + 12.0f);
-    bell.closeSubPath();
-
-    g.setGradientFill (juce::ColourGradient (juce::Colour (0xff6b7079).interpolatedWith (juce::Colours::white, a.energy * 0.6f),
-                                             c.x - 18.0f, c.y, juce::Colour (0xff1e2024), c.x + 18.0f, c.y, false));
-    g.fillPath (bell);
-    g.setColour (juce::Colour (0xffb5bbc2));
-    g.strokePath (bell, juce::PathStrokeType (1.0f));
-    g.setColour (juce::Colours::black);
-    g.fillEllipse (c.x - 17.0f, c.y + 9.0f, 34.0f, 7.0f);
-
-    if (a.energy > 0.005f)
+    for (const auto& pad : pads)
     {
-        g.setGradientFill (juce::ColourGradient (palette::accent.withAlpha (0.5f * a.energy), c.x, c.y,
-                                                 palette::accent.withAlpha (0.0f), c.x + 30.0f, c.y, true));
-        g.fillEllipse (c.x - 30.0f, c.y - 30.0f, 60.0f, 60.0f);
+        g.setColour (juce::Colours::black.withAlpha (0.55f));
+        g.fillRoundedRectangle (pad.bounds, 12.0f);
+
+        if (pad.energy > 0.0f)
+        {
+            g.setColour (palette::accent.withAlpha (0.65f * pad.energy));
+            g.fillRoundedRectangle (pad.bounds, 12.0f);
+        }
+
+        g.setColour (pad.energy > 0.0f ? palette::accent : palette::outline.brighter (0.3f));
+        g.drawRoundedRectangle (pad.bounds, 12.0f, 3.0f);
+
+        g.setColour (palette::text);
+        g.setFont (juce::FontOptions (30.0f, juce::Font::bold));
+        g.drawText (pad.label, pad.bounds, juce::Justification::centred);
     }
 }
 
@@ -612,10 +385,10 @@ void DrumKitView::drawHighlights (juce::Graphics& g)
 {
     if (hovered != nullptr)
     {
-        g.setColour (juce::Colours::white.withAlpha (0.06f));
-        g.fillPath (hovered->area);
-        g.setColour (palette::accent.withAlpha (0.55f));
-        g.strokePath (hovered->area, juce::PathStrokeType (1.5f));
+        g.setColour (juce::Colours::white.withAlpha (0.08f));
+        g.fillPath (hovered->highlight);
+        g.setColour (palette::accent.withAlpha (0.6f));
+        g.strokePath (hovered->highlight, juce::PathStrokeType (3.0f));
     }
 
     if (learningPiece >= 0)
@@ -623,10 +396,10 @@ void DrumKitView::drawHighlights (juce::Graphics& g)
         juce::Path area;
         for (const auto& z : zones)
             if (kit::articulations[(size_t) z.articulation].piece == learningPiece)
-                area.addPath (z.area);
+                area.addPath (z.highlight);
 
         const auto alpha = 0.45f + 0.4f * std::sin (learnPulse);
         g.setColour (palette::accent.withAlpha (alpha));
-        g.strokePath (area, juce::PathStrokeType (3.0f));
+        g.strokePath (area, juce::PathStrokeType (6.0f));
     }
 }

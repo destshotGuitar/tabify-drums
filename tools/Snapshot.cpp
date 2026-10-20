@@ -7,8 +7,6 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_gui_basics/juce_gui_basics.h>
 
-juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter();
-
 namespace
 {
 juce::Button* findButton (juce::Component& root, const juce::String& text)
@@ -106,7 +104,7 @@ int main (int argc, char** argv)
     processor->setPlayConfigDetails (0, 2, 48000.0, 256);
     processor->prepareToPlay (48000.0, 256);
 
-    std::unique_ptr<juce::AudioProcessorEditor> editor (processor->createEditorIfNeeded());
+    std::unique_ptr<juce::AudioProcessorEditor> editor (processor->createEditorAndMakeActive());
     {
         Sequence sequence (*processor, *editor, outDir);
         juce::MessageManager::getInstance()->runDispatchLoop();

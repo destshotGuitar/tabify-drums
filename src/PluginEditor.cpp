@@ -126,7 +126,7 @@ void OpenDrumsEditor::showPage (bool kit)
     mixerView.setVisible (! kit);
 
     const auto content = juce::Rectangle<int> (0, headerHeight, designWidth, designHeight - headerHeight - infoHeight);
-    kitView.setBounds (content.withSizeKeepingCentre (DrumKitView::designWidth, DrumKitView::designHeight));
+    kitView.setBounds (content);
     mixerView.setBounds (content);
 
     kitTab.setBounds (300, 10, 90, 30);

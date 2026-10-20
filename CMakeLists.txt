@@ -47,6 +47,11 @@ juce_add_binary_data(OpenDrumsKitData
     NAMESPACE KitData
     SOURCES ${OPENDRUMS_KIT_SAMPLES})
 
+juce_add_binary_data(OpenDrumsUiData
+    HEADER_NAME UiData.h
+    NAMESPACE UiData
+    SOURCES resources/ui/kit.jpg)
+
 target_sources(OpenDrums PRIVATE
     src/KitDefinition.cpp
     src/DrumEngine.cpp
@@ -82,6 +87,7 @@ endif()
 target_link_libraries(OpenDrums
     PRIVATE
         OpenDrumsKitData
+        OpenDrumsUiData
         juce::juce_audio_utils
         juce::juce_dsp
     PUBLIC
