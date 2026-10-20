@@ -7,7 +7,8 @@
 
 ## Что уже есть (v0.1)
 
-- Встроенный кит **GMRockKit** (Hydrogen, GPL): 18 артикуляций, 5 слоёв по силе удара.
+- Встроенный кит **GMRockKit** (Hydrogen, GPL) с бочкой из **MuldjordKit** (DrumGizmo,
+  CC BY 4.0): 18 артикуляций, 5 слоёв по силе удара. Авторы — `resources/kits/CREDITS.md`.
 - Раскладка нот General MIDI, **MIDI Learn** для любой артикуляции (правый клик по барабану).
 - Хай-хэт: закрытый / полуоткрытый / открытый / педаль, взаимное заглушение (choke).
 - Фото установки (вид сверху), которое реагирует на удары: подсветка и волна по пластику,
@@ -67,6 +68,15 @@ Windows и macOS собираются в GitHub Actions (`.github/workflows/buil
 с теми же именами (любая частота дискретизации; стерео сводится в моно).
 Если сэмпл один — скопируй его во все 5 файлов.
 
+Кит из DrumGizmo (drumgizmo.org, многомикрофонные записи) превращается в 5 слоёв
+скриптом `tools/import_drumgizmo.py` (сводит микрофоны в моно и выбирает удары):
+
+```bash
+tools/import_drumgizmo.py MuldjordKit3/KdrumL/KdrumL.xml \
+    --mix KdrumL=1.0,OHL=0.3,OHR=0.3,AmbL=0.2,AmbR=0.2 \
+    --prefix Kick --out resources/kits/GMRockKit
+```
+
 Какие файлы к какому барабану и какие ноты по умолчанию — в таблице
 `src/KitDefinition.h` (`articulations`).
 
@@ -106,6 +116,6 @@ build/TabifyDrumsSnapshot out
 
 ## Лицензия
 
-Код — AGPLv3 (требование открытой лицензии JUCE). Сэмплы GMRockKit — GPL
-(Glen MacArthur / Sebastian Moors, из проекта Hydrogen). Фото установки
+Код — AGPLv3 (требование открытой лицензии JUCE). Сэмплы — GPL (GMRockKit) и
+CC BY 4.0 (бочка MuldjordKit), подробно в `resources/kits/CREDITS.md`. Фото установки
 (`resources/ui/kit.jpg`) — права нужно подтвердить перед публикацией.

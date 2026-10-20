@@ -112,6 +112,16 @@ int main (int argc, char** argv)
     const auto silence = render (*plugin, scratch, 1 << 30, (int) sampleRate / 4, { { 0, 100 } });
     check (silence < 1.0e-4f, "unmapped note is silent (" + juce::String (silence, 6) + ", before tails: " + juce::String (unmapped, 3) + ")");
 
+    {
+        juce::String sweep ("kick by velocity:");
+        for (const auto v : { 10, 40, 64, 90, 110, 127 })
+        {
+            render (*plugin, scratch, 1 << 30, (int) sampleRate * 3, {});
+            sweep << " " << v << "=" << juce::String (render (*plugin, scratch, 1 << 30, (int) sampleRate / 2, { { 0, 36 } }, v), 3);
+        }
+        std::cout << "  " << sweep << std::endl;
+    }
+
     const auto softPeak = render (*plugin, scratch, 1 << 30, (int) sampleRate / 2, { { 0, 38 } }, 20);
     const auto hardPeak = render (*plugin, scratch, 1 << 30, (int) sampleRate / 2, { { 0, 38 } }, 127);
     check (hardPeak > softPeak * 1.5f, "velocity layers: soft " + juce::String (softPeak, 3) + " < hard " + juce::String (hardPeak, 3));

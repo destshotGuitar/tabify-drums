@@ -80,6 +80,7 @@ private:
     std::array<Compressor, kit::numPieces> compressors;
     std::array<juce::SmoothedValue<float>, kit::numPieces> gainLeft, gainRight;
     juce::SmoothedValue<float> master;
+    bool gainsSet = false; // the first block jumps straight to the target gains
 
     double sampleRate = 44100.0;
     int chokeFadeSamples = 1000;

@@ -105,6 +105,7 @@ void DrumEngine::prepare (double newSampleRate, int maxBlockSize)
         gainRight[(size_t) p].reset (sampleRate, 0.02);
     }
     master.reset (sampleRate, 0.02);
+    gainsSet = false;
 }
 
 void DrumEngine::startBlock (int numSamples)
@@ -248,8 +249,16 @@ void DrumEngine::mix (juce::AudioBuffer<float>& output,
         const auto level = ch.audible ? ch.gain * kitTrim * juce::MathConstants<float>::sqrt2 : 0.0f;
         auto& gl = gainLeft[(size_t) p];
         auto& gr = gainRight[(size_t) p];
-        gl.setTargetValue (level * std::cos (angle));
-        gr.setTargetValue (level * std::sin (angle));
+        if (gainsSet)
+        {
+            gl.setTargetValue (level * std::cos (angle));
+            gr.setTargetValue (level * std::sin (angle));
+        }
+        else
+        {
+            gl.setCurrentAndTargetValue (level * std::cos (angle));
+            gr.setCurrentAndTargetValue (level * std::sin (angle));
+        }
 
         float peak = 0.0f;
         for (int i = 0; i < numSamples; ++i)
@@ -264,7 +273,11 @@ void DrumEngine::mix (juce::AudioBuffer<float>& output,
         peaks[(size_t) p] = peak;
     }
 
-    master.setTargetValue (masterGain);
+    if (gainsSet)
+        master.setTargetValue (masterGain);
+    else
+        master.setCurrentAndTargetValue (masterGain);
+    gainsSet = true;
     float masterPeak = 0.0f;
     for (int i = 0; i < numSamples; ++i)
     {
