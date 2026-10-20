@@ -6,8 +6,8 @@
 
 // The drum kit picture: a top-down photo of the kit with hit zones and hit
 // animations drawn over it. All geometry is in photo pixels; the view scales
-// it to whatever size it is given. Pieces that are not in the photo (cowbell,
-// clap) get pads on the floor.
+// it to whatever size it is given. Pieces that are not in the photo (splash,
+// cowbell, clap) get pads on the floor.
 class DrumKitView final : public juce::Component, private juce::Timer
 {
 public:
